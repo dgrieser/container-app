@@ -1,0 +1,58 @@
+name: Android Release CI
+
+on:
+  push:
+    tags:
+      - "*"
+
+jobs:
+  build:
+    name: Build, Sign & Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout project
+        uses: actions/checkout@v4.2.2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4.7.1
+        with:
+          java-version: "17"
+          distribution: "temurin"
+          cache: gradle
+
+      - uses: actions/cache@v4.2.3
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Build with Gradle
+        run: ./gradlew clean assembleRelease
+
+      - name: Sign APK
+        uses: ilharp/sign-android-release@v2.0.0
+        id: sign_app
+        with:
+          releaseDir: app/build/outputs/apk/release
+          signingKey: ${{ secrets.SIGNINGKEY_BASE64 }}
+          keyAlias: ${{ secrets.KEY_ALIAS }}
+          keyStorePassword: ${{ secrets.KEY_STORE_PASSWORD }}
+          keyPassword: ${{ secrets.KEY_PASSWORD }}
+          buildToolsVersion: 34.0.0
+
+      - name: Release to GitHub
+        uses: svenstaro/upload-release-action@2.11.1
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: ${{ steps.sign_app.outputs.signedFile }}
+          asset_name: container-app-${{ github.ref_name }}-signed.apk
+          tag: ${{ github.ref }}
+          overwrite: true
