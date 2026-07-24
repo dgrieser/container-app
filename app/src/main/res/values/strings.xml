@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Container</string>
+
+    <string name="menu_title">Apps</string>
+    <string name="menu_admin">Admin</string>
+    <string name="fab_open_menu">Open menu</string>
+
+    <!-- PIN -->
+    <string name="pin_set_title">Set a PIN</string>
+    <string name="pin_set_message">Create a PIN to protect the admin menu. You\'ll need it to change settings.</string>
+    <string name="pin_confirm_title">Confirm PIN</string>
+    <string name="pin_confirm_message">Re-enter your PIN to confirm.</string>
+    <string name="pin_enter_title">Enter PIN</string>
+    <string name="pin_enter_message">Enter your PIN to open the admin menu.</string>
+    <string name="pin_change_title">Change PIN</string>
+    <string name="pin_current_message">Enter your current PIN.</string>
+    <string name="pin_new_message">Enter a new PIN.</string>
+    <string name="pin_hint">PIN</string>
+    <string name="pin_mismatch">PINs don\'t match. Try again.</string>
+    <string name="pin_wrong">Incorrect PIN.</string>
+    <string name="pin_too_short">PIN must be at least 4 digits.</string>
+    <string name="pin_changed">PIN changed.</string>
+
+    <!-- Admin -->
+    <string name="admin_title">Admin</string>
+    <string name="admin_config_url">Configuration URL</string>
+    <string name="admin_config_url_hint">https://david-grieser.de/kiosk.json</string>
+    <string name="admin_change_pin">Change PIN</string>
+    <string name="admin_reload">Reload configuration</string>
+    <string name="admin_save">Save</string>
+    <string name="admin_cancel">Cancel</string>
+    <string name="admin_url_saved">Configuration URL saved.</string>
+    <string name="admin_url_invalid">Please enter a valid http(s) URL.</string>
+
+    <!-- Config / errors -->
+    <string name="loading">Loading…</string>
+    <string name="config_load_failed">Couldn\'t load configuration.</string>
+    <string name="config_empty">No apps are configured yet.</string>
+    <string name="config_retry">Retry</string>
+    <string name="config_open_admin">Open admin</string>
+    <string name="nav_blocked">Navigation outside %1$s is blocked.</string>
+    <string name="reloading">Reloading configuration…</string>
+</resources>
