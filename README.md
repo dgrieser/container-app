@@ -90,6 +90,36 @@ If `keystore.properties` is absent, release builds are simply left unsigned
 signing secrets. `keystore.properties`, `*.jks` and `*.keystore` are
 git-ignored.
 
+## Releasing (CI)
+
+`.github/workflows/android-release_ci.yml` builds, signs and publishes a
+release APK automatically **when you push a git tag** (e.g. `v1.0`). It builds
+an unsigned release APK with Gradle, signs it with
+[`ilharp/sign-android-release`](https://github.com/ilharp/sign-android-release),
+and attaches `container-app-<tag>-signed.apk` to the GitHub release for that
+tag. CI does not use `keystore.properties`; it signs from the repository
+secrets below instead.
+
+Set these under **Settings → Secrets and variables → Actions**:
+
+| Secret | What it is / how to produce it |
+|---|---|
+| `SIGNINGKEY_BASE64` | The keystore file, base64-encoded: `base64 -w0 keystore.jks` (macOS: `base64 -i keystore.jks`) |
+| `KEY_ALIAS` | The key alias inside the keystore (the `-alias` used with `keytool -genkeypair`) |
+| `KEY_STORE_PASSWORD` | The keystore password |
+| `KEY_PASSWORD` | The key password (often the same as the store password) |
+
+These are exactly the inputs of the `ilharp/sign-android-release` action. If
+you have no keystore yet, create one with:
+
+```bash
+keytool -genkeypair -v -keystore keystore.jks -keyalg RSA -keysize 2048 \
+  -validity 10000 -alias <your-alias>
+```
+
+Keep the `.jks` and its passwords safe — once an app is published, updates
+must be signed with the **same** key.
+
 ## Notes on "kiosk"
 
 This app is a **single-purpose, navigation-locked container**. It does not by
