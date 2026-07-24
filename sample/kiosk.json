@@ -1,0 +1,19 @@
+{
+  "apps": [
+    {
+      "name": "Portal",
+      "icon": "https://david-grieser.de/kiosk/icons/portal.png",
+      "url": "https://portal.david-grieser.de/"
+    },
+    {
+      "name": "Dashboard",
+      "icon": "https://david-grieser.de/kiosk/icons/dashboard.png",
+      "url": "https://dashboard.david-grieser.de/"
+    },
+    {
+      "name": "Docs",
+      "icon": "https://david-grieser.de/kiosk/icons/docs.png",
+      "url": "https://docs.david-grieser.de/"
+    }
+  ]
+}
