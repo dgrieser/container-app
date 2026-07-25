@@ -8,6 +8,13 @@
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar" tools:targetApi="m">false</item>
+        <!--
+            The activity hides the system bars, so a display cutout is no longer
+            "contained within a system bar" and the default layout mode would
+            letterbox the window below it — a black band across the top. Let the
+            window use the cutout area instead so the page really is full-screen.
+        -->
+        <item name="android:windowLayoutInDisplayCutoutMode" tools:targetApi="o_mr1">shortEdges</item>
     </style>
 
 </resources>
