@@ -1,0 +1,65 @@
+# Which apps to build out of this one container.
+#
+# Every entry under `variants:` becomes its own product flavour, its own
+# applicationId and its own APK, so all of them can be installed on the same
+# device at the same time. They share all the code — only the values below
+# differ, which is what makes one build look like "Container" and another like
+# a single-purpose kiosk for one page.
+#
+# The release pipeline (.github/workflows/android-release_ci.yml) reads this
+# file and publishes one signed APK per variant when a tag is pushed.
+#
+# Keys per variant (unknown keys fail the build, so typos are caught):
+#
+#   id                 required. Internal name: [a-z][a-z0-9]*. Becomes the
+#                      Gradle flavour (`assemble<Id>Release`) and, unless
+#                      `applicationId` says otherwise, the applicationId suffix.
+#   name               required. The launcher label the user sees.
+#   configUrl          required. The kiosk.json this variant loads by default.
+#   applicationId      optional. Full override. Default: <base>.<id>, or the
+#                      bare base id for the variant marked `default: true`.
+#   default            optional (false). Marks the variant Android Studio
+#                      selects, and the one that keeps the bare applicationId.
+#   versionNameSuffix  optional. Appended to the version name, e.g. "-portal".
+#   defaultKioskPath   optional. Which page to open first: an absolute https URL,
+#                      a path such as "/dashboard", or an app name from the
+#                      kiosk.json. Empty = the first app in the kiosk.json.
+#   requirePin         optional (true). false = no PIN setup on first run and
+#                      the admin menu opens straight away.
+#   showMenu           optional (true). false = no hamburger button; the app
+#                      shows a single page and cannot be switched (the admin
+#                      menu is then reached by long-pressing the bottom-right
+#                      corner).
+#   icon.glyph         optional (container). One of: container, apps, dashboard,
+#                      list, menu, home, monitor, chat, info, lock, bolt, star,
+#                      circle, square, triangle, diamond.
+#   icon.vector        optional. Path (from the repo root) to your own 108x108
+#                      vector drawable to use instead of a glyph.
+#   icon.background    optional (#1F6FEB). Icon background colour.
+#   icon.tint          optional (#FFFFFF). Glyph colour.
+
+# Base for generated applicationIds; must match the module namespace.
+applicationId: de.davidgrieser.container
+
+variants:
+  # The full container: remote app list, hamburger menu, PIN-protected admin.
+  - id: container
+    default: true
+    name: Container
+    configUrl: https://david-grieser.de/kiosk.json
+    icon:
+      glyph: container
+      background: "#1F6FEB"
+
+  # Example of a single-purpose build: one page, no menu, no PIN. Rename it,
+  # point it at your own config, or delete it.
+  - id: portal
+    name: Portal
+    configUrl: https://david-grieser.de/kiosk-portal.json
+    defaultKioskPath: https://portal.david-grieser.de/
+    requirePin: false
+    showMenu: false
+    versionNameSuffix: "-portal"
+    icon:
+      glyph: home
+      background: "#0E7C66"

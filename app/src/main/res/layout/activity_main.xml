@@ -63,15 +63,26 @@
             android:text="@string/config_open_admin" />
     </LinearLayout>
 
+    <!--
+        Deliberately unobtrusive: a small, translucent, neutral button that the
+        activity dims further once the user stops interacting, so it never
+        competes with the page it floats over.
+    -->
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/fabMenu"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom|end"
-        android:layout_margin="16dp"
+        android:layout_margin="10dp"
+        android:alpha="0.3"
         android:contentDescription="@string/fab_open_menu"
         android:src="@drawable/ic_menu"
-        app:tint="@color/brand_on_primary"
-        app:backgroundTint="@color/brand_primary" />
+        app:backgroundTint="@color/fab_background"
+        app:borderWidth="0dp"
+        app:elevation="1dp"
+        app:fabCustomSize="36dp"
+        app:maxImageSize="18dp"
+        app:pressedTranslationZ="1dp"
+        app:tint="@color/fab_icon" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

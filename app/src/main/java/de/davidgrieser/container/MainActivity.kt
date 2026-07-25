@@ -1,8 +1,13 @@
 package de.davidgrieser.container
 
 import android.annotation.SuppressLint
+import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.LayoutInflater
+import android.view.MotionEvent
+import android.view.ViewConfiguration
 import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.widget.Toast
@@ -23,6 +28,7 @@ import de.davidgrieser.container.databinding.SheetMenuBinding
 import de.davidgrieser.container.model.AppEntry
 import de.davidgrieser.container.model.KioskConfig
 import kotlinx.coroutines.launch
+import kotlin.math.abs
 
 class MainActivity : AppCompatActivity() {
 
@@ -38,6 +44,21 @@ class MainActivity : AppCompatActivity() {
     /** Guards against a toast per failing sub-resource; reset on every page load. */
     private var sslErrorReported = false
 
+    private val idleHandler = Handler(Looper.getMainLooper())
+
+    /** Fades the menu button back down once the user has stopped interacting. */
+    private val dimMenuButton = Runnable {
+        binding.fabMenu.animate().alpha(FAB_ALPHA_IDLE).setDuration(400).start()
+    }
+
+    /** Where a still-running corner hold (the hidden admin gesture) started. */
+    private var adminGestureOrigin: Pair<Float, Float>? = null
+
+    private val openAdminMenu = Runnable {
+        adminGestureOrigin = null
+        onAdminClicked()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
@@ -50,6 +71,9 @@ class MainActivity : AppCompatActivity() {
         enableImmersiveMode()
         setupWebView()
 
+        // Variants that pin the app to a single page hide the menu entirely; the
+        // admin menu is then reached by holding the bottom-right corner.
+        binding.fabMenu.isVisible = BuildConfig.SHOW_MENU
         binding.fabMenu.setOnClickListener { openMenu() }
         binding.statePrimaryButton.setOnClickListener { loadConfig() }
         binding.stateSecondaryButton.setOnClickListener { onAdminClicked() }
@@ -65,13 +89,14 @@ class MainActivity : AppCompatActivity() {
             }
         })
 
+        wakeMenuButton()
         bootstrap()
     }
 
     // --- Bootstrapping -----------------------------------------------------
 
     private fun bootstrap() {
-        if (!pinManager.isPinSet) {
+        if (BuildConfig.REQUIRE_PIN && !pinManager.isPinSet) {
             promptSetPin(mandatory = true) { loadConfig() }
         } else {
             loadConfig()
@@ -110,10 +135,43 @@ class MainActivity : AppCompatActivity() {
             )
             return
         }
-        val previous = prefs.selectedAppUrl
-        val target = loaded.apps.firstOrNull { it.url == previous } ?: loaded.apps.first()
+        val fallback = defaultApp(loaded) ?: loaded.apps.first()
+        // With the menu hidden the user cannot switch anyway, so such a variant
+        // always opens its configured page instead of the last selection.
+        val target = if (!BuildConfig.SHOW_MENU) {
+            fallback
+        } else {
+            val previous = prefs.selectedAppUrl
+            loaded.apps.firstOrNull { it.url == previous } ?: fallback
+        }
         selectApp(target)
     }
+
+    /**
+     * Resolves this variant's `defaultKioskPath` against the loaded config. It
+     * may be an absolute http(s) URL, a path such as `/dashboard`, or the name
+     * of one of the configured apps. An absolute URL that matches nothing in the
+     * config is still honoured, so a variant can be pinned to a page the shared
+     * config file does not list.
+     */
+    private fun defaultApp(loaded: KioskConfig): AppEntry? {
+        val wanted = BuildConfig.DEFAULT_KIOSK_PATH.trim()
+        if (wanted.isEmpty()) return null
+
+        if (DomainRules.isHttp(wanted)) {
+            return loaded.apps.firstOrNull { it.url == wanted }
+                ?: loaded.apps.firstOrNull { it.url.startsWith(wanted) }
+                ?: AppEntry(getString(R.string.app_name), null, wanted)
+        }
+
+        val path = if (wanted.startsWith("/")) wanted else "/$wanted"
+        return loaded.apps.firstOrNull { pathOf(it.url) == path }
+            ?: loaded.apps.firstOrNull { pathOf(it.url).startsWith(path) }
+            ?: loaded.apps.firstOrNull { it.name.equals(wanted, ignoreCase = true) }
+    }
+
+    private fun pathOf(url: String): String =
+        Uri.parse(url).path?.ifEmpty { "/" } ?: "/"
 
     private fun selectApp(entry: AppEntry) {
         currentApp = entry
@@ -236,6 +294,10 @@ class MainActivity : AppCompatActivity() {
     // --- Admin -------------------------------------------------------------
 
     private fun onAdminClicked() {
+        if (!BuildConfig.REQUIRE_PIN) {
+            showAdminDialog()
+            return
+        }
         if (!pinManager.isPinSet) {
             promptSetPin(mandatory = true) { showAdminDialog() }
             return
@@ -246,7 +308,9 @@ class MainActivity : AppCompatActivity() {
     private fun showAdminDialog() {
         val view = DialogAdminBinding.inflate(layoutInflater)
         view.configUrlInput.setText(prefs.configUrl)
+        view.configUrlInput.hint = BuildConfig.DEFAULT_CONFIG_URL
         view.allowUnverifiedSslSwitch.isChecked = prefs.allowUnverifiedSsl
+        view.btnChangePin.isVisible = BuildConfig.REQUIRE_PIN
 
         val dialog = MaterialAlertDialogBuilder(this)
             .setTitle(R.string.admin_title)
@@ -428,6 +492,67 @@ class MainActivity : AppCompatActivity() {
         binding.swipeRefresh.isVisible = true
     }
 
+    // --- Menu button ---------------------------------------------------------
+
+    /**
+     * Brings the menu button back to (still modest) full opacity while the user
+     * is touching the screen, then schedules it to fade away again.
+     */
+    private fun wakeMenuButton() {
+        if (!BuildConfig.SHOW_MENU) return
+        idleHandler.removeCallbacks(dimMenuButton)
+        binding.fabMenu.animate().alpha(FAB_ALPHA_ACTIVE).setDuration(120).start()
+        idleHandler.postDelayed(dimMenuButton, FAB_IDLE_DELAY_MS)
+    }
+
+    override fun onUserInteraction() {
+        super.onUserInteraction()
+        wakeMenuButton()
+    }
+
+    // --- Hidden admin gesture ------------------------------------------------
+
+    /**
+     * Menu-less variants have no visible way into the admin menu, so holding the
+     * bottom-right corner for [ADMIN_HOLD_MS] opens it. The gesture is tracked
+     * without consuming the events, so nothing is taken away from the page — the
+     * corner keeps working for whatever the web app puts there.
+     */
+    override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+        if (!BuildConfig.SHOW_MENU) trackAdminGesture(event)
+        return super.dispatchTouchEvent(event)
+    }
+
+    private fun trackAdminGesture(event: MotionEvent) {
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                val corner = resources.displayMetrics.density * ADMIN_CORNER_DP
+                val inCorner = event.x > binding.root.width - corner &&
+                    event.y > binding.root.height - corner
+                if (inCorner) {
+                    adminGestureOrigin = event.x to event.y
+                    idleHandler.postDelayed(openAdminMenu, ADMIN_HOLD_MS)
+                }
+            }
+            MotionEvent.ACTION_MOVE -> {
+                val (startX, startY) = adminGestureOrigin ?: return
+                val slop = ViewConfiguration.get(this).scaledTouchSlop
+                if (abs(event.x - startX) > slop || abs(event.y - startY) > slop) {
+                    cancelAdminGesture()
+                }
+            }
+            MotionEvent.ACTION_UP,
+            MotionEvent.ACTION_CANCEL,
+            MotionEvent.ACTION_POINTER_DOWN -> cancelAdminGesture()
+        }
+    }
+
+    private fun cancelAdminGesture() {
+        if (adminGestureOrigin == null) return
+        adminGestureOrigin = null
+        idleHandler.removeCallbacks(openAdminMenu)
+    }
+
     // --- Immersive mode ----------------------------------------------------
 
     private fun enableImmersiveMode() {
@@ -454,11 +579,22 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        idleHandler.removeCallbacks(dimMenuButton)
+        idleHandler.removeCallbacks(openAdminMenu)
         binding.webView.destroy()
         super.onDestroy()
     }
 
     companion object {
         private const val BLANK_URL = "about:blank"
+
+        /** Opacity of the menu button while the user is interacting, and at rest. */
+        private const val FAB_ALPHA_ACTIVE = 0.75f
+        private const val FAB_ALPHA_IDLE = 0.3f
+        private const val FAB_IDLE_DELAY_MS = 2_500L
+
+        /** Hidden admin gesture: hold this corner square for this long. */
+        private const val ADMIN_CORNER_DP = 72f
+        private const val ADMIN_HOLD_MS = 1_500L
     }
 }
