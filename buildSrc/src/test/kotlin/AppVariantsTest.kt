@@ -5,6 +5,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import java.io.File
+import javax.xml.parsers.DocumentBuilderFactory
 
 /**
  * Guards the parsing of `app-variants.yaml`. It runs as part of `buildSrc:build`,
@@ -29,7 +30,20 @@ class AppVariantsTest {
                 variant.icon.glyph != null || variant.icon.vector != null
             )
             variant.icon.vector?.let {
-                assertTrue("$it does not exist", File(repoRoot(), it).isFile)
+                val vector = File(repoRoot(), it)
+                assertTrue("$it does not exist", vector.isFile)
+                // It is copied into the APK as the icon foreground unchanged, so
+                // a wrong viewport here would silently ship a misplaced icon.
+                val root = DocumentBuilderFactory.newInstance()
+                    .newDocumentBuilder().parse(vector).documentElement
+                assertEquals("$it must be a vector drawable", "vector", root.tagName)
+                listOf("viewportWidth", "viewportHeight").forEach { attribute ->
+                    assertEquals(
+                        "$it must declare android:$attribute=\"108\"",
+                        "108",
+                        root.getAttribute("android:$attribute")
+                    )
+                }
             }
             variant.icon.glyph?.let {
                 assertTrue("unknown glyph $it", LauncherGlyphs.pathData(it) != null)
