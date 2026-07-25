@@ -9,9 +9,31 @@ permissions:
   contents: write
 
 jobs:
-  build:
-    name: Build, Sign & Release
+  variants:
+    name: Read app variants
     runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.read.outputs.matrix }}
+    steps:
+      - name: Checkout project
+        uses: actions/checkout@v4.2.2
+
+      - name: Read app-variants.yaml
+        id: read
+        run: |
+          python3 -c "import yaml" 2>/dev/null || pip3 install --quiet pyyaml
+          matrix="$(python3 .github/scripts/list_variants.py)"
+          echo "Building variants: $matrix"
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: Build, Sign & Release (${{ matrix.variant.name }})
+    needs: variants
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: ${{ fromJson(needs.variants.outputs.matrix) }}
     steps:
       - name: Checkout project
         uses: actions/checkout@v4.2.2
@@ -38,13 +60,13 @@ jobs:
         run: chmod +x gradlew
 
       - name: Build with Gradle
-        run: ./gradlew clean assembleRelease
+        run: ./gradlew clean assemble${{ matrix.variant.gradleName }}Release
 
       - name: Sign APK
         uses: ilharp/sign-android-release@v2.0.0
         id: sign_app
         with:
-          releaseDir: app/build/outputs/apk/release
+          releaseDir: app/build/outputs/apk/${{ matrix.variant.id }}/release
           signingKey: ${{ secrets.SIGNINGKEY_BASE64 }}
           keyAlias: ${{ secrets.KEY_ALIAS }}
           keyStorePassword: ${{ secrets.KEY_STORE_PASSWORD }}
@@ -56,6 +78,6 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: ${{ steps.sign_app.outputs.signedFile }}
-          asset_name: container-app-${{ github.ref_name }}-signed.apk
+          asset_name: container-app-${{ matrix.variant.id }}-${{ github.ref_name }}-signed.apk
           tag: ${{ github.ref }}
           overwrite: true

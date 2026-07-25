@@ -5,24 +5,56 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
+/** Base applicationId / namespace; variants derive their own ids from it. */
+val baseApplicationId = "de.davidgrieser.container"
+
+/** Dimension holding one flavour per entry of app-variants.yaml. */
+val variantDimension = "app"
+
+/**
+ * The apps to build out of this container — name, symbol, kiosk config and the
+ * behaviour switches — all declared in app-variants.yaml.
+ */
+val appVariants = AppVariants.load(rootProject.file("app-variants.yaml"), baseApplicationId)
+
 android {
-    namespace = "de.davidgrieser.container"
+    namespace = baseApplicationId
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "de.davidgrieser.container"
         minSdk = 24
         targetSdk = 34
         versionCode = 1
         versionName = "1.0"
+    }
 
-        // Default location of the remotely-controlled kiosk configuration.
-        // Can be overridden at runtime from the PIN-protected admin menu.
-        buildConfigField(
-            "String",
-            "DEFAULT_CONFIG_URL",
-            "\"https://david-grieser.de/kiosk.json\""
-        )
+    flavorDimensions += variantDimension
+
+    productFlavors {
+        appVariants.forEach { variant ->
+            create(variant.id) {
+                dimension = variantDimension
+                applicationId = variant.applicationId
+                isDefault = variant.isDefault
+                variant.versionNameSuffix?.let { versionNameSuffix = it }
+
+                // The launcher label. Deliberately not in res/values/strings.xml:
+                // every build gets it from its variant.
+                resValue("string", "app_name", variant.name)
+
+                buildConfigField("String", "VARIANT_ID", javaStringLiteral(variant.id))
+                // Default location of the remotely-controlled kiosk configuration.
+                // Can be overridden at runtime from the admin menu.
+                buildConfigField("String", "DEFAULT_CONFIG_URL", javaStringLiteral(variant.configUrl))
+                buildConfigField(
+                    "String",
+                    "DEFAULT_KIOSK_PATH",
+                    javaStringLiteral(variant.defaultKioskPath)
+                )
+                buildConfigField("boolean", "REQUIRE_PIN", variant.requirePin.toString())
+                buildConfigField("boolean", "SHOW_MENU", variant.showMenu.toString())
+            }
+        }
     }
 
     signingConfigs {
@@ -71,6 +103,35 @@ android {
     buildFeatures {
         buildConfig = true
         viewBinding = true
+    }
+}
+
+/**
+ * Generates each variant's launcher icon (background colour + symbol) into its
+ * own resource directory, so the APKs are told apart on the home screen without
+ * any icon assets being checked in.
+ */
+androidComponents {
+    val variantsById = appVariants.associateBy { it.id }
+    onVariants { variant ->
+        val flavor = variant.productFlavors
+            .firstOrNull { (dimension, _) -> dimension == variantDimension }
+            ?.second
+        val spec = variantsById[flavor] ?: return@onVariants
+
+        val generateIcons = tasks.register<GenerateLauncherIconsTask>(
+            "generate${variant.name.replaceFirstChar(Char::uppercaseChar)}LauncherIcons"
+        ) {
+            description = "Generates the launcher icon for the ${spec.name} variant."
+            background.set(spec.icon.background)
+            tint.set(spec.icon.tint)
+            spec.icon.glyph?.let { glyphPathData.set(LauncherGlyphs.pathData(it)) }
+            spec.icon.vector?.let { vectorFile.set(rootProject.file(it)) }
+        }
+        variant.sources.res?.addGeneratedSourceDirectory(
+            generateIcons,
+            GenerateLauncherIconsTask::outputDir
+        )
     }
 }
 

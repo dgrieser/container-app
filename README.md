@@ -6,8 +6,17 @@ between the allowed web apps from an in-app menu, but cannot navigate the
 browser away to any other domain. An admin (PIN-protected) can point the app at
 a different configuration URL and change the PIN.
 
+One code base can ship as **several different apps**: name, icon, kiosk
+configuration and behaviour come from [`app-variants.yaml`](app-variants.yaml),
+and the release pipeline builds one installable APK per entry. See
+[App variants](#app-variants).
+
 ## Features
 
+- **Several apps from one container.** [`app-variants.yaml`](app-variants.yaml)
+  declares each app's name, launcher symbol, configuration URL, default page,
+  and whether it has a PIN or a menu at all. Every variant gets its own
+  `applicationId`, so they install side by side on the same device.
 - **Remotely controlled app list.** On launch the app fetches a JSON file and
   shows the web apps it lists. Change the JSON on the server → every device
   updates on next launch / reload. No app update needed.
@@ -16,8 +25,12 @@ a different configuration URL and change the PIN.
   domain are blocked — the page "will not work" for off-domain links, exactly as
   requested. Subdomains of the same registered domain are allowed (so `www.`,
   `cdn.`, `portal.` etc. work).
-- **Hamburger menu.** A round menu button sits at the **bottom-right**. Tapping
-  it opens a bottom sheet to switch between the allowed apps.
+- **Hamburger menu.** A small, translucent menu button sits at the
+  **bottom-right**. It is deliberately unobtrusive: 36 dp, neutral grey, and it
+  fades down to 30 % opacity a couple of seconds after the last touch, so it
+  barely registers over the page until you reach for it. Tapping it opens a
+  bottom sheet to switch between the allowed apps. Variants with
+  `showMenu: false` drop the button entirely and show a single page.
 - **Pull to refresh.** Sliding down with a finger from the top of the page
   reloads it, the way browser apps do. The gesture only fires when the page is
   already scrolled to the top, so it never interferes with scrolling. Because
@@ -36,11 +49,86 @@ a different configuration URL and change the PIN.
   certificate — useful for internal servers whose CA isn't installed on the
   device. See [Unverified certificates](#unverified-certificates).
 - **First-run PIN setup.** On first launch the app requires you to create a PIN
-  before continuing.
+  before continuing — unless the variant sets `requirePin: false`, in which case
+  no PIN is asked for and the admin menu opens straight away.
 - **Phones and tablets.** No fixed orientation, responsive layout, immersive
   full-screen.
 - **Offline resilience.** The last successfully loaded configuration is cached,
   so the app still works if the server is temporarily unreachable.
+
+## App variants
+
+[`app-variants.yaml`](app-variants.yaml) decides which apps are built out of
+this container. Each entry under `variants:` becomes a Gradle product flavour
+with its own `applicationId`, launcher name and launcher symbol, so the APKs
+install **in parallel** on one device — same container app, different content
+and behaviour:
+
+```yaml
+applicationId: de.davidgrieser.container   # base for generated ids
+
+variants:
+  - id: container            # internal name → flavour + applicationId suffix
+    default: true            # keeps the bare applicationId, IDE default
+    name: Container          # launcher label
+    configUrl: https://david-grieser.de/kiosk.json
+    icon:
+      glyph: container
+      background: "#1F6FEB"
+
+  - id: portal
+    name: Portal
+    configUrl: https://david-grieser.de/kiosk-portal.json
+    defaultKioskPath: https://portal.david-grieser.de/
+    requirePin: false        # no PIN at all
+    showMenu: false          # single page, no hamburger button
+    versionNameSuffix: "-portal"
+    icon:
+      glyph: home
+      background: "#0E7C66"
+```
+
+| Key | Required | Meaning |
+|---|---|---|
+| `id` | yes | Internal name, `[a-z][a-z0-9]*`. Becomes the Gradle flavour (`assembleContainerRelease`) and the applicationId suffix. |
+| `name` | yes | Launcher label (`app_name`). |
+| `configUrl` | yes | The `kiosk.json` this variant loads by default. |
+| `applicationId` | no | Full override. Default: `<base>.<id>`, or the bare base id for the `default: true` variant. |
+| `default` | no | One variant may set it: keeps the bare applicationId and is the flavour Android Studio preselects. |
+| `versionNameSuffix` | no | Appended to the version name, e.g. `-portal`. |
+| `defaultKioskPath` | no | Which page to open first (see below). Empty = first app in the `kiosk.json`. |
+| `requirePin` | no (`true`) | `false` = no PIN setup on first run and the admin menu opens without one. |
+| `showMenu` | no (`true`) | `false` = no hamburger button; the app shows a single page and cannot be switched. |
+| `icon.glyph` | no (`container`) | Built-in symbol: `container`, `apps`, `dashboard`, `list`, `menu`, `home`, `monitor`, `chat`, `info`, `lock`, `bolt`, `star`, `circle`, `square`, `triangle`, `diamond`. |
+| `icon.vector` | no | Path (from the repo root) to your own 108×108 vector drawable, used instead of a glyph. |
+| `icon.background` | no (`#1F6FEB`) | Icon background colour, `#RRGGBB` or `#AARRGGBB`. |
+| `icon.tint` | no (`#FFFFFF`) | Glyph colour. |
+
+Unknown or misspelled keys **fail the build** rather than being ignored, so a
+typo cannot silently ship an APK with the wrong name or kiosk URL.
+
+`defaultKioskPath` is resolved against the loaded configuration, in this order:
+
+1. an absolute `https://` URL — matched against the configured apps, and
+   otherwise opened as-is (so a variant can be pinned to a page the shared
+   `kiosk.json` does not even list);
+2. a path such as `/dashboard` — matched against the path of each configured
+   app's URL (exact first, then prefix);
+3. the `name` of one of the configured apps.
+
+If nothing matches, the first app in the `kiosk.json` is shown.
+
+**Icons are generated, not checked in.** For every variant the build writes an
+adaptive icon (plus a layered fallback for API 24/25) from the glyph and colours
+above into a generated resource folder — see
+[`buildSrc/src/main/kotlin`](buildSrc/src/main/kotlin). Nothing needs to be
+drawn by hand to tell two installed builds apart.
+
+**Reaching the admin menu without a menu button.** A variant with
+`showMenu: false` has no visible entry point, so **holding the bottom-right
+corner for 1.5 s** opens the admin menu (asking for the PIN first, unless
+`requirePin: false`). The gesture is watched without consuming touch events, so
+the page underneath keeps working normally.
 
 ## Configuration file format
 
@@ -69,8 +157,9 @@ Field notes:
 
 A bare top-level array (`[ {…}, {…} ]`) is also accepted.
 
-The default URL can be changed at build time (`DEFAULT_CONFIG_URL` in
-`app/build.gradle.kts`) or at runtime from the admin menu.
+The default URL is per variant (`configUrl` in
+[`app-variants.yaml`](app-variants.yaml)) and can be changed at runtime from the
+admin menu.
 
 ## Unverified certificates
 
@@ -109,11 +198,17 @@ Requires the Android SDK (platform 34, build-tools 34.x) and JDK 17.
 # Point the build at your SDK (or set ANDROID_HOME):
 echo "sdk.dir=/path/to/Android/Sdk" > local.properties
 
-./gradlew assembleDebug     # debug APK
-./gradlew assembleRelease   # signed release (needs keystore.properties, see below)
+./gradlew assembleDebug             # debug APK of every variant
+./gradlew assembleContainerDebug    # just one variant
+./gradlew assembleRelease           # signed release (needs keystore.properties, see below)
 ```
 
-Output: `app/build/outputs/apk/`.
+Output: `app/build/outputs/apk/<variant>/<build type>/`, e.g.
+`app/build/outputs/apk/container/release/`.
+
+The variant definitions are parsed and the launcher icons generated by the small
+Gradle plugin code in [`buildSrc`](buildSrc); its unit tests run as part of every
+Gradle invocation, so an invalid `app-variants.yaml` is reported immediately.
 
 ## Signing
 
@@ -133,13 +228,22 @@ git-ignored.
 
 ## Releasing (CI)
 
-`.github/workflows/android-release_ci.yml` builds, signs and publishes a
-release APK automatically **when you push a git tag** (e.g. `v1.0`). It builds
-an unsigned release APK with Gradle, signs it with
+`.github/workflows/android-release_ci.yml` builds, signs and publishes the
+release APKs automatically **when you push a git tag** (e.g. `v1.0`). It reads
+[`app-variants.yaml`](app-variants.yaml) into a build matrix (via
+`.github/scripts/list_variants.py`) and then, **once per variant and in
+parallel**, builds an unsigned release APK with Gradle, signs it with
 [`ilharp/sign-android-release`](https://github.com/ilharp/sign-android-release),
-and attaches `container-app-<tag>-signed.apk` to the GitHub release for that
-tag. CI does not use `keystore.properties`; it signs from the repository
+and attaches `container-app-<variant>-<tag>-signed.apk` to the GitHub release
+for that tag. So a tag on the file above produces
+`container-app-container-v1.0-signed.apk` and
+`container-app-portal-v1.0-signed.apk`, which can be installed next to each
+other. CI does not use `keystore.properties`; it signs from the repository
 secrets below instead.
+
+All variants are signed with the same key, which is what you want: the
+`applicationId` is what keeps them apart, and a shared key means updates keep
+working for each of them.
 
 Set these under **Settings → Secrets and variables → Actions**:
 
@@ -174,6 +278,11 @@ the container on Back instead of exiting).
 ## Project layout
 
 ```
+app-variants.yaml        Which apps to build: name, symbol, kiosk config, behaviour
+buildSrc/src/main/kotlin/
+  AppVariants.kt         Parses & validates app-variants.yaml
+  LauncherGlyphs.kt      The built-in launcher symbols
+  GenerateLauncherIconsTask.kt  Writes each variant's icon resources
 app/src/main/java/de/davidgrieser/container/
   MainActivity.kt        UI: WebView, pull-to-refresh, FAB, menu sheet, admin & PIN dialogs
   KioskWebViewClient.kt  Enforces the domain lock & TLS-error policy

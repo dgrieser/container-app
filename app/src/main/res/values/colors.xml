@@ -7,4 +7,7 @@
     <color name="surface">#FFFFFF</color>
     <color name="on_surface">#1A1A1A</color>
     <color name="scrim">#66000000</color>
+    <!-- Menu button: neutral and translucent so it stays out of the page's way. -->
+    <color name="fab_background">#59000000</color>
+    <color name="fab_icon">#FFFFFFFF</color>
 </resources>

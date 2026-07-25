@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Container</string>
+    <!-- app_name comes from the variant declared in app-variants.yaml. -->
 
     <string name="menu_title">Apps</string>
     <string name="menu_admin">Admin</string>
