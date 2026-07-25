@@ -61,5 +61,5 @@ variants:
     showMenu: false
     versionNameSuffix: "-podcaster"
     icon:
-      glyph: home
+      glyph: list
       background: "#0E7C66"
