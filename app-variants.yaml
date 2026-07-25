@@ -53,13 +53,13 @@ variants:
 
   # Example of a single-purpose build: one page, no menu, no PIN. Rename it,
   # point it at your own config, or delete it.
-  - id: portal
-    name: Portal
-    configUrl: https://david-grieser.de/kiosk-portal.json
-    defaultKioskPath: https://portal.david-grieser.de/
+  - id: podcaster
+    name: Podcaster
+    configUrl: https://david-grieser.de/kiosk-podcaster.json
+    defaultKioskPath: https://raspberrypi/podcaster
     requirePin: false
     showMenu: false
-    versionNameSuffix: "-portal"
+    versionNameSuffix: "-podcaster"
     icon:
       glyph: home
       background: "#0E7C66"
