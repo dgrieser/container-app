@@ -18,11 +18,23 @@ a different configuration URL and change the PIN.
   `cdn.`, `portal.` etc. work).
 - **Hamburger menu.** A round menu button sits at the **bottom-right**. Tapping
   it opens a bottom sheet to switch between the allowed apps.
+- **Pull to refresh.** Sliding down with a finger from the top of the page
+  reloads it, the way browser apps do. The gesture only fires when the page is
+  already scrolled to the top, so it never interferes with scrolling. Because
+  the app runs full-screen, start the swipe just below the very top edge —
+  a swipe from the edge itself is taken by the system to reveal the status bar.
 - **Admin menu (PIN-protected).** An **Admin** entry in the menu asks for the
   PIN, then lets you:
   - set the **configuration URL** (which JSON file to read),
+  - allow **unverified certificates** (see below),
   - **reload** the configuration,
   - **change the PIN**.
+- **Unverified HTTPS certificates (opt-in).** Off by default: a page whose
+  certificate can't be verified is refused, as in any browser. Turning
+  *Allow unverified certificates* on in the admin menu makes the app load
+  pages served with a self-signed, expired, unknown-CA or wrong-host
+  certificate — useful for internal servers whose CA isn't installed on the
+  device. See [Unverified certificates](#unverified-certificates).
 - **First-run PIN setup.** On first launch the app requires you to create a PIN
   before continuing.
 - **Phones and tablets.** No fixed orientation, responsive layout, immersive
@@ -59,6 +71,35 @@ A bare top-level array (`[ {…}, {…} ]`) is also accepted.
 
 The default URL can be changed at build time (`DEFAULT_CONFIG_URL` in
 `app/build.gradle.kts`) or at runtime from the admin menu.
+
+## Unverified certificates
+
+Admin → **Allow unverified certificates** (a switch in the admin dialog,
+persisted per device, **off** by default). When it is on:
+
+- the **WebView** proceeds through TLS errors instead of cancelling the load —
+  self-signed certificates, expired ones, certificates from a CA the device
+  doesn't know, and certificates issued for a different host name;
+- the **configuration fetch** and the **menu icon downloads** likewise skip
+  certificate and host-name verification.
+
+Two limits are deliberate:
+
+- The bypass follows the domain lock: TLS errors are only waived for URLs
+  inside the currently selected app's registered domain. A broken certificate
+  on some unrelated third-party host is still refused, and the app shows a
+  short message saying which host was blocked.
+- Cleartext `http://` is still blocked by the network security config. The
+  switch relaxes *certificate verification*, not the requirement to use TLS.
+
+Toggling the switch clears the WebView's remembered per-host decisions, so the
+new setting applies to hosts that were already visited.
+
+> **Security note.** With verification off the connection is encrypted but no
+> longer authenticated: anything on the network path can present its own
+> certificate and read or modify the traffic. Only enable this for kiosks on a
+> network you control. The better fix, where possible, is to install the
+> internal CA on the device (or via MDM) and leave the switch off.
 
 ## Building
 
@@ -134,8 +175,9 @@ the container on Back instead of exiting).
 
 ```
 app/src/main/java/de/davidgrieser/container/
-  MainActivity.kt        UI: WebView, hamburger FAB, menu sheet, admin & PIN dialogs
-  KioskWebViewClient.kt  Enforces the domain lock
+  MainActivity.kt        UI: WebView, pull-to-refresh, FAB, menu sheet, admin & PIN dialogs
+  KioskWebViewClient.kt  Enforces the domain lock & TLS-error policy
+  InsecureSsl.kt         Opt-in trust-all TLS for the app's own HTTP calls
   DomainRules.kt         Host / domain matching rules
   ConfigRepository.kt    Fetches & parses the remote JSON (with caching)
   Prefs.kt               Persisted state (PIN hash, config URL, cache, selection)

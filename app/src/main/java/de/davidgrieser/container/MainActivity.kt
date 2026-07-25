@@ -35,6 +35,9 @@ class MainActivity : AppCompatActivity() {
     private var config: KioskConfig = KioskConfig(emptyList())
     private var currentApp: AppEntry? = null
 
+    /** Guards against a toast per failing sub-resource; reset on every page load. */
+    private var sslErrorReported = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
@@ -125,15 +128,35 @@ class MainActivity : AppCompatActivity() {
     @SuppressLint("SetJavaScriptEnabled")
     private fun setupWebView() {
         webClient = KioskWebViewClient(
+            allowUnverifiedSsl = { prefs.allowUnverifiedSsl },
             onBlocked = { blocked ->
                 val host = DomainRules.host(currentApp?.url) ?: ""
                 Toast.makeText(
                     this, getString(R.string.nav_blocked, host), Toast.LENGTH_SHORT
                 ).show()
             },
-            onPageStarted = { binding.progress.isVisible = true },
-            onPageFinished = { binding.progress.isVisible = false }
+            onSslError = { error ->
+                if (!sslErrorReported) {
+                    sslErrorReported = true
+                    val host = DomainRules.host(error.url) ?: getString(R.string.ssl_blocked_host)
+                    Toast.makeText(
+                        this, getString(R.string.ssl_blocked, host), Toast.LENGTH_LONG
+                    ).show()
+                }
+            },
+            onPageStarted = {
+                sslErrorReported = false
+                binding.progress.isVisible = true
+            },
+            onPageFinished = {
+                binding.progress.isVisible = false
+                binding.swipeRefresh.isRefreshing = false
+            }
         )
+        binding.swipeRefresh.apply {
+            setColorSchemeResources(R.color.brand_primary)
+            setOnRefreshListener { reloadCurrentPage() }
+        }
         binding.webView.apply {
             webViewClient = webClient
             webChromeClient = object : WebChromeClient() {
@@ -159,6 +182,24 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * Pull-to-refresh target. Reloads the page in place; if there is nothing
+     * loaded (the very first load failed, so the WebView still sits on
+     * `about:blank`), the selected app is loaded from scratch instead.
+     */
+    private fun reloadCurrentPage() {
+        val loaded = binding.webView.url
+        val entry = currentApp
+        when {
+            !loaded.isNullOrBlank() && loaded != BLANK_URL -> binding.webView.reload()
+            entry != null -> binding.webView.loadUrl(entry.url)
+            else -> {
+                binding.swipeRefresh.isRefreshing = false
+                loadConfig()
+            }
+        }
+    }
+
     // --- Menu --------------------------------------------------------------
 
     private fun openMenu() {
@@ -174,7 +215,8 @@ class MainActivity : AppCompatActivity() {
             row.appIcon.setImageResource(R.drawable.ic_app_placeholder)
             entry.iconUrl?.let { iconUrl ->
                 lifecycleScope.launch {
-                    IconLoader.load(iconUrl)?.let { row.appIcon.setImageBitmap(it) }
+                    IconLoader.load(iconUrl, prefs.allowUnverifiedSsl)
+                        ?.let { row.appIcon.setImageBitmap(it) }
                 }
             }
             row.root.setOnClickListener {
@@ -204,6 +246,7 @@ class MainActivity : AppCompatActivity() {
     private fun showAdminDialog() {
         val view = DialogAdminBinding.inflate(layoutInflater)
         view.configUrlInput.setText(prefs.configUrl)
+        view.allowUnverifiedSslSwitch.isChecked = prefs.allowUnverifiedSsl
 
         val dialog = MaterialAlertDialogBuilder(this)
             .setTitle(R.string.admin_title)
@@ -217,8 +260,7 @@ class MainActivity : AppCompatActivity() {
             promptChangePin()
         }
         view.btnReload.setOnClickListener {
-            val url = view.configUrlInput.text?.toString()?.trim().orEmpty()
-            if (saveConfigUrl(url)) {
+            if (saveAdminSettings(view)) {
                 dialog.dismiss()
                 Toast.makeText(this, R.string.reloading, Toast.LENGTH_SHORT).show()
                 loadConfig()
@@ -227,8 +269,7 @@ class MainActivity : AppCompatActivity() {
 
         dialog.setOnShowListener {
             dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-                val url = view.configUrlInput.text?.toString()?.trim().orEmpty()
-                if (saveConfigUrl(url)) {
+                if (saveAdminSettings(view)) {
                     dialog.dismiss()
                     Toast.makeText(this, R.string.admin_url_saved, Toast.LENGTH_SHORT).show()
                     loadConfig()
@@ -238,13 +279,25 @@ class MainActivity : AppCompatActivity() {
         dialog.show()
     }
 
-    /** Validates and persists the config URL. Returns false (and shows an error) if invalid. */
-    private fun saveConfigUrl(url: String): Boolean {
+    /**
+     * Validates and persists the admin settings (config URL and TLS handling).
+     * Returns false (and shows an error) if the URL is invalid.
+     */
+    private fun saveAdminSettings(view: DialogAdminBinding): Boolean {
+        val url = view.configUrlInput.text?.toString()?.trim().orEmpty()
         if (!DomainRules.isHttp(url)) {
             Toast.makeText(this, R.string.admin_url_invalid, Toast.LENGTH_SHORT).show()
             return false
         }
         prefs.configUrl = url
+
+        val allowUnverifiedSsl = view.allowUnverifiedSslSwitch.isChecked
+        if (allowUnverifiedSsl != prefs.allowUnverifiedSsl) {
+            prefs.allowUnverifiedSsl = allowUnverifiedSsl
+            // Drop per-host "proceed" decisions the WebView remembered, so the
+            // new setting takes effect for hosts that were already visited.
+            binding.webView.clearSslPreferences()
+        }
         return true
     }
 
@@ -360,7 +413,8 @@ class MainActivity : AppCompatActivity() {
     // --- State view --------------------------------------------------------
 
     private fun showState(message: String, primary: String?, secondary: String?) {
-        binding.webView.isVisible = false
+        binding.swipeRefresh.isRefreshing = false
+        binding.swipeRefresh.isVisible = false
         binding.stateContainer.isVisible = true
         binding.stateMessage.text = message
         binding.statePrimaryButton.isVisible = primary != null
@@ -371,7 +425,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun hideState() {
         binding.stateContainer.isVisible = false
-        binding.webView.isVisible = true
+        binding.swipeRefresh.isVisible = true
     }
 
     // --- Immersive mode ----------------------------------------------------
@@ -402,5 +456,9 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         binding.webView.destroy()
         super.onDestroy()
+    }
+
+    companion object {
+        private const val BLANK_URL = "about:blank"
     }
 }
