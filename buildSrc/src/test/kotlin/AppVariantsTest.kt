@@ -60,6 +60,7 @@ class AppVariantsTest {
         assertEquals("Container", container.gradleName)
         assertTrue(container.requirePin)
         assertTrue(container.showMenu)
+        assertFalse(container.allowUnverifiedSsl)
         assertEquals("", container.defaultKioskPath)
         assertEquals(LauncherGlyphs.DEFAULT, container.icon.glyph)
 
@@ -68,6 +69,23 @@ class AppVariantsTest {
         assertFalse(portal.requirePin)
         assertFalse(portal.showMenu)
         assertEquals("/dashboard", portal.defaultKioskPath)
+    }
+
+    @Test
+    fun `a variant pinned to an absolute page needs no configUrl`() {
+        val variant = load(
+            """
+            variants:
+              - id: pinned
+                name: Pinned
+                defaultKioskPath: https://raspberrypi/podcaster
+                allowUnverifiedSsl: true
+            """
+        ).single()
+
+        assertEquals("", variant.configUrl)
+        assertEquals("https://raspberrypi/podcaster", variant.defaultKioskPath)
+        assertTrue(variant.allowUnverifiedSsl)
     }
 
     @Test
@@ -100,6 +118,19 @@ class AppVariantsTest {
             variants:
               - id: a
                 name: A
+        """)
+        assertRejected("relative defaultKioskPath without a configUrl", """
+            variants:
+              - id: a
+                name: A
+                defaultKioskPath: /dashboard
+        """)
+        assertRejected("non-boolean allowUnverifiedSsl", """
+            variants:
+              - id: a
+                name: A
+                configUrl: https://example.com/k.json
+                allowUnverifiedSsl: yes please
         """)
         assertRejected("unknown glyph", """
             variants:

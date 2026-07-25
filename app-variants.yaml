@@ -15,7 +15,9 @@
 #                      Gradle flavour (`assemble<Id>Release`) and, unless
 #                      `applicationId` says otherwise, the applicationId suffix.
 #   name               required. The launcher label the user sees.
-#   configUrl          required. The kiosk.json this variant loads by default.
+#   configUrl          required, unless `defaultKioskPath` is an absolute URL —
+#                      such a variant needs no kiosk.json and opens that page
+#                      directly. The admin menu can still point it at one later.
 #   applicationId      optional. Full override. Default: <base>.<id>, or the
 #                      bare base id for the variant marked `default: true`.
 #   default            optional (false). Marks the variant Android Studio
@@ -30,6 +32,10 @@
 #                      shows a single page and cannot be switched (the admin
 #                      menu is then reached by long-pressing the bottom-right
 #                      corner).
+#   allowUnverifiedSsl optional (false). true = ship with "allow unverified
+#                      certificates" already on, for kiosks against a server
+#                      with a self-signed certificate or an internal CA. The
+#                      admin switch can still turn it off per device.
 #   icon.glyph         optional (container). One of: container, apps, dashboard,
 #                      list, menu, home, monitor, chat, info, lock, bolt, star,
 #                      circle, square, triangle, diamond.
@@ -51,14 +57,15 @@ variants:
       glyph: container
       background: "#1F6FEB"
 
-  # Example of a single-purpose build: one page, no menu, no PIN. Rename it,
-  # point it at your own config, or delete it.
+  # Example of a single-purpose build: one page, no menu, no PIN, and no
+  # kiosk.json — the page is pinned here. It lives on a local host with a
+  # self-signed certificate, so unverified certificates are on from the start.
   - id: podcaster
     name: Podcaster
-    configUrl: https://david-grieser.de/kiosk-podcaster.json
     defaultKioskPath: https://raspberrypi/podcaster
     requirePin: false
     showMenu: false
+    allowUnverifiedSsl: true
     versionNameSuffix: "-podcaster"
     icon:
       glyph: list

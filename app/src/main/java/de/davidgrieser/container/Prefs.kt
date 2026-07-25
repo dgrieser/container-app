@@ -31,19 +31,28 @@ class Prefs(context: Context) {
 
     // --- Configuration URL -------------------------------------------------
 
+    /**
+     * Which kiosk.json to read. Falls back to the variant's built-in URL, so
+     * clearing the admin field restores the default. Empty when the variant has
+     * no configuration file at all — such a build only shows its
+     * `defaultKioskPath`.
+     */
     var configUrl: String
-        get() = sp.getString(KEY_CONFIG_URL, null) ?: BuildConfig.DEFAULT_CONFIG_URL
-        set(value) = sp.edit().putString(KEY_CONFIG_URL, value).apply()
+        get() = sp.getString(KEY_CONFIG_URL, null)?.trim()?.ifEmpty { null }
+            ?: BuildConfig.DEFAULT_CONFIG_URL
+        set(value) = sp.edit().putString(KEY_CONFIG_URL, value.trim()).apply()
 
     // --- TLS -----------------------------------------------------------------
 
     /**
      * When true, pages (and the config/icon downloads) are loaded even if the
      * server's certificate cannot be verified — self-signed, expired, issued by
-     * an unknown CA or for a different host name. Off by default.
+     * an unknown CA or for a different host name. Defaults to the variant's
+     * `allowUnverifiedSsl` (itself false unless declared), and stays whatever the
+     * admin last chose.
      */
     var allowUnverifiedSsl: Boolean
-        get() = sp.getBoolean(KEY_ALLOW_UNVERIFIED_SSL, false)
+        get() = sp.getBoolean(KEY_ALLOW_UNVERIFIED_SSL, BuildConfig.ALLOW_UNVERIFIED_SSL)
         set(value) = sp.edit().putBoolean(KEY_ALLOW_UNVERIFIED_SSL, value).apply()
 
     // --- Selected app -------------------------------------------------------
