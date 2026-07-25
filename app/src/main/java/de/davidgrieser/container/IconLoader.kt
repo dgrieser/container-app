@@ -20,7 +20,12 @@ object IconLoader {
         override fun sizeOf(key: String, value: Bitmap) = value.byteCount
     }
 
-    suspend fun load(url: String): Bitmap? {
+    /**
+     * Downloads and decodes [url]. [allowUnverifiedSsl] mirrors the admin
+     * setting: when set, an icon served with an untrusted certificate is
+     * fetched anyway instead of falling back to the placeholder.
+     */
+    suspend fun load(url: String, allowUnverifiedSsl: Boolean = false): Bitmap? {
         cache.get(url)?.let { return it }
         if (!DomainRules.isHttp(url)) return null
         return withContext(Dispatchers.IO) {
@@ -29,6 +34,7 @@ object IconLoader {
                     connectTimeout = 10_000
                     readTimeout = 10_000
                     instanceFollowRedirects = true
+                    if (allowUnverifiedSsl) InsecureSsl.applyTo(this)
                 }
                 try {
                     conn.inputStream.use { input ->

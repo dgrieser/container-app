@@ -35,6 +35,17 @@ class Prefs(context: Context) {
         get() = sp.getString(KEY_CONFIG_URL, null) ?: BuildConfig.DEFAULT_CONFIG_URL
         set(value) = sp.edit().putString(KEY_CONFIG_URL, value).apply()
 
+    // --- TLS -----------------------------------------------------------------
+
+    /**
+     * When true, pages (and the config/icon downloads) are loaded even if the
+     * server's certificate cannot be verified — self-signed, expired, issued by
+     * an unknown CA or for a different host name. Off by default.
+     */
+    var allowUnverifiedSsl: Boolean
+        get() = sp.getBoolean(KEY_ALLOW_UNVERIFIED_SSL, false)
+        set(value) = sp.edit().putBoolean(KEY_ALLOW_UNVERIFIED_SSL, value).apply()
+
     // --- Selected app -------------------------------------------------------
 
     var selectedAppUrl: String?
@@ -77,6 +88,7 @@ class Prefs(context: Context) {
         private const val KEY_PIN_HASH = "pin_hash"
         private const val KEY_PIN_SALT = "pin_salt"
         private const val KEY_CONFIG_URL = "config_url"
+        private const val KEY_ALLOW_UNVERIFIED_SSL = "allow_unverified_ssl"
         private const val KEY_SELECTED_APP = "selected_app_url"
         private const val KEY_CACHED_CONFIG = "cached_config"
     }

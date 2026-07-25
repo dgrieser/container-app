@@ -29,6 +29,21 @@
             android:maxLines="3" />
     </com.google.android.material.textfield.TextInputLayout>
 
+    <com.google.android.material.materialswitch.MaterialSwitch
+        android:id="@+id/allowUnverifiedSslSwitch"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:text="@string/admin_allow_unverified_ssl"
+        android:textAppearance="?attr/textAppearanceLabelLarge" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:text="@string/admin_allow_unverified_ssl_hint"
+        android:textAppearance="?attr/textAppearanceBodySmall" />
+
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btnChangePin"
         style="@style/Widget.Material3.Button.TonalButton"

@@ -26,6 +26,8 @@
     <string name="admin_title">Admin</string>
     <string name="admin_config_url">Configuration URL</string>
     <string name="admin_config_url_hint">https://david-grieser.de/kiosk.json</string>
+    <string name="admin_allow_unverified_ssl">Allow unverified certificates</string>
+    <string name="admin_allow_unverified_ssl_hint">Load pages even when the HTTPS certificate can\'t be verified (self-signed, expired, unknown CA or wrong host name). Only use this on a trusted network — the connection is no longer protected against interception.</string>
     <string name="admin_change_pin">Change PIN</string>
     <string name="admin_reload">Reload configuration</string>
     <string name="admin_save">Save</string>
@@ -40,5 +42,7 @@
     <string name="config_retry">Retry</string>
     <string name="config_open_admin">Open admin</string>
     <string name="nav_blocked">Navigation outside %1$s is blocked.</string>
+    <string name="ssl_blocked">Blocked: the certificate of %1$s couldn\'t be verified. Enable unverified certificates in the admin menu to load it anyway.</string>
+    <string name="ssl_blocked_host">this site</string>
     <string name="reloading">Reloading configuration…</string>
 </resources>

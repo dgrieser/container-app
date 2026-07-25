@@ -48,6 +48,7 @@ class ConfigRepository(private val prefs: Prefs) {
             setRequestProperty("Accept", "application/json")
             setRequestProperty("Cache-Control", "no-cache")
             instanceFollowRedirects = true
+            if (prefs.allowUnverifiedSsl) InsecureSsl.applyTo(this)
         }
         try {
             val code = conn.responseCode
