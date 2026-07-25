@@ -18,6 +18,11 @@ a different configuration URL and change the PIN.
   `cdn.`, `portal.` etc. work).
 - **Hamburger menu.** A round menu button sits at the **bottom-right**. Tapping
   it opens a bottom sheet to switch between the allowed apps.
+- **Pull to refresh.** Sliding down with a finger from the top of the page
+  reloads it, the way browser apps do. The gesture only fires when the page is
+  already scrolled to the top, so it never interferes with scrolling. Because
+  the app runs full-screen, start the swipe just below the very top edge —
+  a swipe from the edge itself is taken by the system to reveal the status bar.
 - **Admin menu (PIN-protected).** An **Admin** entry in the menu asks for the
   PIN, then lets you:
   - set the **configuration URL** (which JSON file to read),
@@ -170,7 +175,7 @@ the container on Back instead of exiting).
 
 ```
 app/src/main/java/de/davidgrieser/container/
-  MainActivity.kt        UI: WebView, hamburger FAB, menu sheet, admin & PIN dialogs
+  MainActivity.kt        UI: WebView, pull-to-refresh, FAB, menu sheet, admin & PIN dialogs
   KioskWebViewClient.kt  Enforces the domain lock & TLS-error policy
   InsecureSsl.kt         Opt-in trust-all TLS for the app's own HTTP calls
   DomainRules.kt         Host / domain matching rules

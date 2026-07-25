@@ -148,8 +148,15 @@ class MainActivity : AppCompatActivity() {
                 sslErrorReported = false
                 binding.progress.isVisible = true
             },
-            onPageFinished = { binding.progress.isVisible = false }
+            onPageFinished = {
+                binding.progress.isVisible = false
+                binding.swipeRefresh.isRefreshing = false
+            }
         )
+        binding.swipeRefresh.apply {
+            setColorSchemeResources(R.color.brand_primary)
+            setOnRefreshListener { reloadCurrentPage() }
+        }
         binding.webView.apply {
             webViewClient = webClient
             webChromeClient = object : WebChromeClient() {
@@ -171,6 +178,24 @@ class MainActivity : AppCompatActivity() {
                 allowFileAccess = false
                 allowContentAccess = false
                 mediaPlaybackRequiresUserGesture = true
+            }
+        }
+    }
+
+    /**
+     * Pull-to-refresh target. Reloads the page in place; if there is nothing
+     * loaded (the very first load failed, so the WebView still sits on
+     * `about:blank`), the selected app is loaded from scratch instead.
+     */
+    private fun reloadCurrentPage() {
+        val loaded = binding.webView.url
+        val entry = currentApp
+        when {
+            !loaded.isNullOrBlank() && loaded != BLANK_URL -> binding.webView.reload()
+            entry != null -> binding.webView.loadUrl(entry.url)
+            else -> {
+                binding.swipeRefresh.isRefreshing = false
+                loadConfig()
             }
         }
     }
@@ -388,7 +413,8 @@ class MainActivity : AppCompatActivity() {
     // --- State view --------------------------------------------------------
 
     private fun showState(message: String, primary: String?, secondary: String?) {
-        binding.webView.isVisible = false
+        binding.swipeRefresh.isRefreshing = false
+        binding.swipeRefresh.isVisible = false
         binding.stateContainer.isVisible = true
         binding.stateMessage.text = message
         binding.statePrimaryButton.isVisible = primary != null
@@ -399,7 +425,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun hideState() {
         binding.stateContainer.isVisible = false
-        binding.webView.isVisible = true
+        binding.swipeRefresh.isVisible = true
     }
 
     // --- Immersive mode ----------------------------------------------------
@@ -430,5 +456,9 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         binding.webView.destroy()
         super.onDestroy()
+    }
+
+    companion object {
+        private const val BLANK_URL = "about:blank"
     }
 }
