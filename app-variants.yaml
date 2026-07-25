@@ -36,9 +36,9 @@
 #                      certificates" already on, for kiosks against a server
 #                      with a self-signed certificate or an internal CA. The
 #                      admin switch can still turn it off per device.
-#   icon.glyph         optional (container). One of: container, apps, dashboard,
-#                      list, menu, home, monitor, chat, info, lock, bolt, star,
-#                      circle, square, triangle, diamond.
+#   icon.glyph         optional (container). One of: container, equalizer, apps,
+#                      dashboard, list, menu, home, monitor, chat, info, lock,
+#                      bolt, star, circle, square, triangle, diamond.
 #   icon.vector        optional. Path (from the repo root) to your own 108x108
 #                      vector drawable to use instead of a glyph.
 #   icon.background    optional (#1F6FEB). Icon background colour.
@@ -68,5 +68,6 @@ variants:
     allowUnverifiedSsl: true
     versionNameSuffix: "-podcaster"
     icon:
-      glyph: list
-      background: "#0E7C66"
+      glyph: equalizer
+      background: "#0E1714"
+      tint: "#F2B33D"
