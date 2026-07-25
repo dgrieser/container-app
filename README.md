@@ -134,7 +134,10 @@ that field again returns it to its pinned page.
 adaptive icon (plus a layered fallback for API 24/25) from the glyph and colours
 above into a generated resource folder — see
 [`buildSrc/src/main/kotlin`](buildSrc/src/main/kotlin). Nothing needs to be
-drawn by hand to tell two installed builds apart.
+drawn by hand to tell two installed builds apart. A variant whose symbol is more
+than a glyph points `icon.vector` at a 108×108 vector drawable in
+[`app-icons/`](app-icons) instead; that file becomes the icon foreground
+verbatim, so it brings its own colours and `icon.tint` no longer applies.
 
 **Reaching the admin menu without a menu button.** A variant with
 `showMenu: false` has no visible entry point, so **holding the bottom-right
@@ -297,6 +300,7 @@ the container on Back instead of exiting).
 
 ```
 app-variants.yaml        Which apps to build: name, symbol, kiosk config, behaviour
+app-icons/               Hand-drawn launcher symbols referenced by `icon.vector`
 buildSrc/src/main/kotlin/
   AppVariants.kt         Parses & validates app-variants.yaml
   LauncherGlyphs.kt      The built-in launcher symbols

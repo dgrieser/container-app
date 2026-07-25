@@ -71,3 +71,19 @@ variants:
       glyph: equalizer
       background: "#0E1714"
       tint: "#F2B33D"
+
+  # Another single-page build: one pinned page, no menu, no PIN, no kiosk.json.
+  # Its host has a certificate the device can verify, so unlike Podcaster it
+  # leaves `allowUnverifiedSsl` at its safe default. Its symbol is also the first
+  # that is not a built-in glyph but the site's own artwork, checked in as a
+  # vector drawable and used as the icon foreground verbatim — which is why no
+  # `tint` is given here: that drawable carries its own colours.
+  - id: gasoline
+    name: Gasoline
+    defaultKioskPath: https://gasoline.david-grieser.de/
+    requirePin: false
+    showMenu: false
+    versionNameSuffix: "-gasoline"
+    icon:
+      vector: app-icons/gasoline.xml
+      background: "#22303F"
