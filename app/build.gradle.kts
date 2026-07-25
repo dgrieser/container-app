@@ -44,7 +44,8 @@ android {
 
                 buildConfigField("String", "VARIANT_ID", javaStringLiteral(variant.id))
                 // Default location of the remotely-controlled kiosk configuration.
-                // Can be overridden at runtime from the admin menu.
+                // Can be overridden at runtime from the admin menu. Empty for
+                // variants that only ever show their DEFAULT_KIOSK_PATH.
                 buildConfigField("String", "DEFAULT_CONFIG_URL", javaStringLiteral(variant.configUrl))
                 buildConfigField(
                     "String",
@@ -53,6 +54,12 @@ android {
                 )
                 buildConfigField("boolean", "REQUIRE_PIN", variant.requirePin.toString())
                 buildConfigField("boolean", "SHOW_MENU", variant.showMenu.toString())
+                // Initial value of the admin switch; still togglable at runtime.
+                buildConfigField(
+                    "boolean",
+                    "ALLOW_UNVERIFIED_SSL",
+                    variant.allowUnverifiedSsl.toString()
+                )
             }
         }
     }

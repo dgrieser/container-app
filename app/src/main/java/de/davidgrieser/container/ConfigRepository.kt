@@ -30,6 +30,11 @@ class ConfigRepository(private val prefs: Prefs) {
 
     suspend fun load(): Result<KioskConfig> = withContext(Dispatchers.IO) {
         val url = prefs.configUrl
+        if (url.isEmpty()) {
+            // A variant pinned to an absolute defaultKioskPath needs no config
+            // file; there is nothing to fetch and nothing to report as failed.
+            return@withContext Result.success(KioskConfig(emptyList()))
+        }
         runCatching {
             val body = fetch(url)
             val config = parse(body)

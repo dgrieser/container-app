@@ -15,8 +15,9 @@ and the release pipeline builds one installable APK per entry. See
 
 - **Several apps from one container.** [`app-variants.yaml`](app-variants.yaml)
   declares each app's name, launcher symbol, configuration URL, default page,
-  and whether it has a PIN or a menu at all. Every variant gets its own
-  `applicationId`, so they install side by side on the same device.
+  its TLS handling, and whether it has a PIN or a menu at all. Every variant gets
+  its own `applicationId`, so they install side by side on the same device.
+  A variant pinned to one absolute URL can skip the configuration file entirely.
 - **Remotely controlled app list.** On launch the app fetches a JSON file and
   shows the web apps it lists. Change the JSON on the server → every device
   updates on next launch / reload. No app update needed.
@@ -47,7 +48,9 @@ and the release pipeline builds one installable APK per entry. See
   *Allow unverified certificates* on in the admin menu makes the app load
   pages served with a self-signed, expired, unknown-CA or wrong-host
   certificate — useful for internal servers whose CA isn't installed on the
-  device. See [Unverified certificates](#unverified-certificates).
+  device. A variant can ship with it already on
+  (`allowUnverifiedSsl: true`). See
+  [Unverified certificates](#unverified-certificates).
 - **First-run PIN setup.** On first launch the app requires you to create a PIN
   before continuing — unless the variant sets `requirePin: false`, in which case
   no PIN is asked for and the admin menu opens straight away.
@@ -78,10 +81,10 @@ variants:
 
   - id: portal
     name: Portal
-    configUrl: https://david-grieser.de/kiosk-portal.json
-    defaultKioskPath: https://portal.david-grieser.de/
+    defaultKioskPath: https://portal.david-grieser.de/   # pinned, so no configUrl
     requirePin: false        # no PIN at all
     showMenu: false          # single page, no hamburger button
+    allowUnverifiedSsl: true # server has a self-signed certificate
     versionNameSuffix: "-portal"
     icon:
       glyph: home
@@ -92,13 +95,14 @@ variants:
 |---|---|---|
 | `id` | yes | Internal name, `[a-z][a-z0-9]*`. Becomes the Gradle flavour (`assembleContainerRelease`) and the applicationId suffix. |
 | `name` | yes | Launcher label (`app_name`). |
-| `configUrl` | yes | The `kiosk.json` this variant loads by default. |
+| `configUrl` | yes\* | The `kiosk.json` this variant loads by default. \*Optional when `defaultKioskPath` is an absolute http(s) URL — that variant then reads no configuration file at all. |
 | `applicationId` | no | Full override. Default: `<base>.<id>`, or the bare base id for the `default: true` variant. |
 | `default` | no | One variant may set it: keeps the bare applicationId and is the flavour Android Studio preselects. |
 | `versionNameSuffix` | no | Appended to the version name, e.g. `-portal`. |
 | `defaultKioskPath` | no | Which page to open first (see below). Empty = first app in the `kiosk.json`. |
 | `requirePin` | no (`true`) | `false` = no PIN setup on first run and the admin menu opens without one. |
 | `showMenu` | no (`true`) | `false` = no hamburger button; the app shows a single page and cannot be switched. |
+| `allowUnverifiedSsl` | no (`false`) | `true` = the *Allow unverified certificates* switch starts on, for kiosks against a self-signed or internal-CA server. Still togglable per device in the admin menu. |
 | `icon.glyph` | no (`container`) | Built-in symbol: `container`, `apps`, `dashboard`, `list`, `menu`, `home`, `monitor`, `chat`, `info`, `lock`, `bolt`, `star`, `circle`, `square`, `triangle`, `diamond`. |
 | `icon.vector` | no | Path (from the repo root) to your own 108×108 vector drawable, used instead of a glyph. |
 | `icon.background` | no (`#1F6FEB`) | Icon background colour, `#RRGGBB` or `#AARRGGBB`. |
@@ -117,6 +121,14 @@ typo cannot silently ship an APK with the wrong name or kiosk URL.
 3. the `name` of one of the configured apps.
 
 If nothing matches, the first app in the `kiosk.json` is shown.
+
+Because case 1 needs nothing from the configuration file, `configUrl` may be
+left out when `defaultKioskPath` is an absolute URL: such a variant fetches no
+JSON, opens that one page, and anchors the domain lock to it. Anything else — a
+path, an app name, or no `defaultKioskPath` at all — has to be resolved against
+the app list, so a `configUrl` is then required and the build fails without one.
+An admin can still point such a variant at a configuration URL later; clearing
+that field again returns it to its pinned page.
 
 **Icons are generated, not checked in.** For every variant the build writes an
 adaptive icon (plus a layered fallback for API 24/25) from the glyph and colours
@@ -159,12 +171,18 @@ A bare top-level array (`[ {…}, {…} ]`) is also accepted.
 
 The default URL is per variant (`configUrl` in
 [`app-variants.yaml`](app-variants.yaml)) and can be changed at runtime from the
-admin menu.
+admin menu; leaving the admin field empty restores the variant's own URL.
+Variants pinned to an absolute `defaultKioskPath` need no configuration file at
+all — see [App variants](#app-variants).
 
 ## Unverified certificates
 
 Admin → **Allow unverified certificates** (a switch in the admin dialog,
-persisted per device, **off** by default). When it is on:
+persisted per device). It starts **off**, unless the variant declares
+`allowUnverifiedSsl: true` in [`app-variants.yaml`](app-variants.yaml) — a build
+for a kiosk against a self-signed server can then be installed without anybody
+having to flip the switch on each device, and flipping it stays possible. When
+it is on:
 
 - the **WebView** proceeds through TLS errors instead of cancelling the load —
   self-signed certificates, expired ones, certificates from a CA the device

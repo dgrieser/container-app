@@ -25,6 +25,11 @@ data class AppVariant(
     val name: String,
     val applicationId: String,
     val versionNameSuffix: String?,
+    /**
+     * The kiosk.json this variant reads. Empty when the variant ships without
+     * one, which [defaultKioskPath] then has to make up for by being an
+     * absolute URL.
+     */
     val configUrl: String,
     /** Page this variant opens by default; see README for the matching rules. */
     val defaultKioskPath: String,
@@ -32,6 +37,8 @@ data class AppVariant(
     val requirePin: Boolean,
     /** When false, no hamburger button is shown and the app is single-page. */
     val showMenu: Boolean,
+    /** Initial state of the admin's "allow unverified certificates" switch. */
+    val allowUnverifiedSsl: Boolean,
     val isDefault: Boolean,
     val icon: LauncherIcon
 ) {
@@ -53,7 +60,8 @@ object AppVariants {
     private val TOP_LEVEL_KEYS = setOf("applicationId", "variants")
     private val VARIANT_KEYS = setOf(
         "id", "name", "applicationId", "versionNameSuffix", "configUrl",
-        "defaultKioskPath", "requirePin", "showMenu", "default", "icon"
+        "defaultKioskPath", "requirePin", "showMenu", "allowUnverifiedSsl",
+        "default", "icon"
     )
     private val ICON_KEYS = setOf("glyph", "vector", "background", "tint")
 
@@ -121,9 +129,20 @@ object AppVariants {
         val applicationId = map.string("applicationId")
             ?: if (isDefault) baseApplicationId else "$baseApplicationId.$id"
 
+        val defaultKioskPath = map.string("defaultKioskPath").orEmpty()
+
+        // A variant needs somewhere to get its page from: either a kiosk.json to
+        // read, or a defaultKioskPath that is a complete URL on its own. Only a
+        // relative path or an app name has to be resolved against a config file.
         val configUrl = map.string("configUrl")
-            ?: error("$where: `configUrl` is required (the kiosk.json this variant reads).")
-        if (!configUrl.startsWith("https://") && !configUrl.startsWith("http://")) {
+        if (configUrl == null) {
+            if (!isAbsoluteHttpUrl(defaultKioskPath)) {
+                error(
+                    "$where: `configUrl` is required unless `defaultKioskPath` is an absolute " +
+                        "http(s) URL — without either the variant has no page to open."
+                )
+            }
+        } else if (!isAbsoluteHttpUrl(configUrl)) {
             error("$where: configUrl `$configUrl` must be an absolute http(s) URL.")
         }
 
@@ -132,10 +151,11 @@ object AppVariants {
             name = name,
             applicationId = applicationId,
             versionNameSuffix = map.string("versionNameSuffix"),
-            configUrl = configUrl,
-            defaultKioskPath = map.string("defaultKioskPath").orEmpty(),
+            configUrl = configUrl.orEmpty(),
+            defaultKioskPath = defaultKioskPath,
             requirePin = map.boolean("requirePin") ?: true,
             showMenu = map.boolean("showMenu") ?: true,
+            allowUnverifiedSsl = map.boolean("allowUnverifiedSsl") ?: false,
             isDefault = isDefault,
             icon = parseIcon(map["icon"], "$where icon", fileName)
         )
@@ -171,6 +191,9 @@ object AppVariants {
             tint = tint
         )
     }
+
+    private fun isAbsoluteHttpUrl(value: String): Boolean =
+        value.startsWith("https://") || value.startsWith("http://")
 
     // --- tiny YAML helpers -------------------------------------------------
 

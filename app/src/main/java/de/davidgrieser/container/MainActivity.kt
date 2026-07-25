@@ -127,7 +127,10 @@ class MainActivity : AppCompatActivity() {
 
     private fun render(loaded: KioskConfig) {
         config = loaded
-        if (loaded.isEmpty) {
+        // An absolute defaultKioskPath resolves on its own, so a variant without a
+        // configuration file still has a page here; anything else needs the list.
+        val fallback = defaultApp(loaded) ?: loaded.apps.firstOrNull()
+        if (fallback == null) {
             showState(
                 getString(R.string.config_empty),
                 primary = getString(R.string.config_retry),
@@ -135,7 +138,13 @@ class MainActivity : AppCompatActivity() {
             )
             return
         }
-        val fallback = defaultApp(loaded) ?: loaded.apps.first()
+        // A page pinned by defaultKioskPath is not necessarily one of the listed
+        // apps (and for a variant without a configuration file there is no list at
+        // all), so put it in the menu — otherwise switching away from it would be
+        // a one-way trip.
+        if (loaded.apps.none { it.url == fallback.url }) {
+            config = KioskConfig(loaded.apps + fallback)
+        }
         // With the menu hidden the user cannot switch anyway, so such a variant
         // always opens its configured page instead of the last selection.
         val target = if (!BuildConfig.SHOW_MENU) {
@@ -309,6 +318,7 @@ class MainActivity : AppCompatActivity() {
         val view = DialogAdminBinding.inflate(layoutInflater)
         view.configUrlInput.setText(prefs.configUrl)
         view.configUrlInput.hint = BuildConfig.DEFAULT_CONFIG_URL
+            .ifEmpty { getString(R.string.admin_config_url_optional) }
         view.allowUnverifiedSslSwitch.isChecked = prefs.allowUnverifiedSsl
         view.btnChangePin.isVisible = BuildConfig.REQUIRE_PIN
 
@@ -345,11 +355,13 @@ class MainActivity : AppCompatActivity() {
 
     /**
      * Validates and persists the admin settings (config URL and TLS handling).
-     * Returns false (and shows an error) if the URL is invalid.
+     * Returns false (and shows an error) if the URL is invalid. An empty field
+     * means "use this variant's built-in URL" — and for a variant that ships
+     * without one, that no configuration file is read at all.
      */
     private fun saveAdminSettings(view: DialogAdminBinding): Boolean {
         val url = view.configUrlInput.text?.toString()?.trim().orEmpty()
-        if (!DomainRules.isHttp(url)) {
+        if (url.isNotEmpty() && !DomainRules.isHttp(url)) {
             Toast.makeText(this, R.string.admin_url_invalid, Toast.LENGTH_SHORT).show()
             return false
         }
