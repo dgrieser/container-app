@@ -36,6 +36,13 @@
 #                      certificates" already on, for kiosks against a server
 #                      with a self-signed certificate or an internal CA. The
 #                      admin switch can still turn it off per device.
+#   allowExternalNavigation
+#                      optional (false). false = a link leaving the page's own
+#                      domain is refused, and the user is told so. true = such a
+#                      link is handed to Android's default handler instead, so it
+#                      opens in the browser (or whichever app claims it) while
+#                      this app stays on its own page. Either way the off-domain
+#                      page never loads inside the container.
 #   icon.glyph         optional (container). One of: container, equalizer, apps,
 #                      dashboard, list, menu, home, monitor, chat, info, lock,
 #                      bolt, star, circle, square, triangle, diamond.
@@ -74,7 +81,9 @@ variants:
 
   # Another single-page build: one pinned page, no menu, no PIN, no kiosk.json.
   # Its host has a certificate the device can verify, so unlike Podcaster it
-  # leaves `allowUnverifiedSsl` at its safe default. Its symbol is also the first
+  # leaves `allowUnverifiedSsl` at its safe default. It does open its off-domain
+  # links, though: they leave for the browser rather than being refused, because
+  # the page links out to places worth following. Its symbol is also the first
   # that is not a built-in glyph but the site's own artwork, checked in as a
   # vector drawable and used as the icon foreground verbatim — which is why no
   # `tint` is given here: that drawable carries its own colours.
@@ -83,6 +92,7 @@ variants:
     defaultKioskPath: https://gasoline.david-grieser.de/
     requirePin: false
     showMenu: false
+    allowExternalNavigation: true
     versionNameSuffix: "-gasoline"
     icon:
       vector: app-icons/gasoline.xml

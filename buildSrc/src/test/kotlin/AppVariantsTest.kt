@@ -75,6 +75,7 @@ class AppVariantsTest {
         assertTrue(container.requirePin)
         assertTrue(container.showMenu)
         assertFalse(container.allowUnverifiedSsl)
+        assertFalse(container.allowExternalNavigation)
         assertEquals("", container.defaultKioskPath)
         assertEquals(LauncherGlyphs.DEFAULT, container.icon.glyph)
 
@@ -100,6 +101,25 @@ class AppVariantsTest {
         assertEquals("", variant.configUrl)
         assertEquals("https://raspberrypi/podcaster", variant.defaultKioskPath)
         assertTrue(variant.allowUnverifiedSsl)
+    }
+
+    @Test
+    fun `leaving the domain lock stays opt-in per variant`() {
+        val variants = load(
+            """
+            variants:
+              - id: locked
+                name: Locked
+                defaultKioskPath: https://locked.example.com/
+              - id: outbound
+                name: Outbound
+                defaultKioskPath: https://outbound.example.com/
+                allowExternalNavigation: true
+            """
+        )
+
+        assertFalse("off-domain links must be refused unless asked for", variants[0].allowExternalNavigation)
+        assertTrue(variants[1].allowExternalNavigation)
     }
 
     @Test
@@ -145,6 +165,13 @@ class AppVariantsTest {
                 name: A
                 configUrl: https://example.com/k.json
                 allowUnverifiedSsl: yes please
+        """)
+        assertRejected("non-boolean allowExternalNavigation", """
+            variants:
+              - id: a
+                name: A
+                configUrl: https://example.com/k.json
+                allowExternalNavigation: sometimes
         """)
         assertRejected("unknown glyph", """
             variants:

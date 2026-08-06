@@ -60,6 +60,13 @@ android {
                     "ALLOW_UNVERIFIED_SSL",
                     variant.allowUnverifiedSsl.toString()
                 )
+                // Whether an off-domain link is handed to the device's default
+                // handler instead of being refused. Fixed per build.
+                buildConfigField(
+                    "boolean",
+                    "ALLOW_EXTERNAL_NAVIGATION",
+                    variant.allowExternalNavigation.toString()
+                )
             }
         }
     }

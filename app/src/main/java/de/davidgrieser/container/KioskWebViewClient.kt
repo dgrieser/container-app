@@ -10,10 +10,16 @@ import android.webkit.WebView
 import androidx.webkit.WebViewClientCompat
 
 /**
- * Enforces the domain lock: any navigation whose host leaves the currently
- * selected app's registered domain is refused. This covers user taps on links,
- * redirects and `target="_blank"` (multiple windows are disabled, so those are
- * routed here too).
+ * Enforces the domain lock: a navigation whose host leaves the currently
+ * selected app's registered domain never happens inside the WebView. This covers
+ * user taps on links, redirects and `target="_blank"` (multiple windows are
+ * disabled, so those are routed here too).
+ *
+ * What happens to such a navigation instead depends on the variant. By default
+ * it is simply refused. A variant built with `allowExternalNavigation: true`
+ * ([allowExternalNavigation]) hands http(s) URLs to [onExternalNavigation],
+ * which passes them on to the device — normally the browser. Either way the
+ * container itself stays on the anchored page.
  *
  * It also decides what happens on a TLS error: by default the load is
  * cancelled, but when the admin has enabled "allow unverified certificates"
@@ -21,6 +27,8 @@ import androidx.webkit.WebViewClientCompat
  */
 class KioskWebViewClient(
     private val allowUnverifiedSsl: () -> Boolean,
+    private val allowExternalNavigation: () -> Boolean,
+    private val onExternalNavigation: (String) -> Boolean,
     private val onBlocked: (String) -> Unit,
     private val onSslError: (SslError) -> Unit,
     private val onPageStarted: () -> Unit,
@@ -36,7 +44,15 @@ class KioskWebViewClient(
         if (DomainRules.isAllowed(anchorUrl, target)) {
             return false // let the WebView load it
         }
-        // Block anything that would leave the anchored domain.
+        // Leaves the anchored domain. Where allowed, let the device deal with it
+        // — only for http(s), so a page cannot use this to fire arbitrary
+        // intents at whatever else is installed. If nothing can open it, it is
+        // treated as blocked, as it would be without the setting.
+        if (target != null && allowExternalNavigation() && DomainRules.isHttp(target) &&
+            onExternalNavigation(target)
+        ) {
+            return true
+        }
         target?.let(onBlocked)
         return true
     }
