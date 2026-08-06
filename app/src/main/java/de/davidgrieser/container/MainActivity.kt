@@ -1,10 +1,13 @@
 package de.davidgrieser.container
 
 import android.annotation.SuppressLint
+import android.content.ActivityNotFoundException
+import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.ViewConfiguration
@@ -196,6 +199,8 @@ class MainActivity : AppCompatActivity() {
     private fun setupWebView() {
         webClient = KioskWebViewClient(
             allowUnverifiedSsl = { prefs.allowUnverifiedSsl },
+            allowExternalNavigation = { BuildConfig.ALLOW_EXTERNAL_NAVIGATION },
+            onExternalNavigation = ::openOutsideContainer,
             onBlocked = { blocked ->
                 val host = DomainRules.host(currentApp?.url) ?: ""
                 Toast.makeText(
@@ -246,6 +251,32 @@ class MainActivity : AppCompatActivity() {
                 allowContentAccess = false
                 mediaPlaybackRequiresUserGesture = true
             }
+        }
+    }
+
+    /**
+     * Hands [url] to whatever the device has registered for it — the default
+     * browser, or an app that claims the link. Used for off-domain links in
+     * variants built with `allowExternalNavigation: true`; the container keeps
+     * showing its own page, and the link opens in its own task so returning
+     * lands back here.
+     *
+     * Returns false when nothing on the device can open it, which leaves the
+     * navigation blocked as it would be by default.
+     */
+    private fun openOutsideContainer(url: String): Boolean {
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
+            // Only components that accept links from the web, so a page cannot
+            // reach anything that never expected untrusted input.
+            addCategory(Intent.CATEGORY_BROWSABLE)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        return try {
+            startActivity(intent)
+            true
+        } catch (e: ActivityNotFoundException) {
+            Log.w(TAG, "No handler for external link $url", e)
+            false
         }
     }
 
@@ -598,6 +629,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     companion object {
+        private const val TAG = "MainActivity"
+
         private const val BLANK_URL = "about:blank"
 
         /** Opacity of the menu button while the user is interacting, and at rest. */

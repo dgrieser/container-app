@@ -39,6 +39,11 @@ data class AppVariant(
     val showMenu: Boolean,
     /** Initial state of the admin's "allow unverified certificates" switch. */
     val allowUnverifiedSsl: Boolean,
+    /**
+     * When true, a link leaving the anchored domain is handed to the device's
+     * default handler (usually the browser) instead of being refused.
+     */
+    val allowExternalNavigation: Boolean,
     val isDefault: Boolean,
     val icon: LauncherIcon
 ) {
@@ -61,7 +66,7 @@ object AppVariants {
     private val VARIANT_KEYS = setOf(
         "id", "name", "applicationId", "versionNameSuffix", "configUrl",
         "defaultKioskPath", "requirePin", "showMenu", "allowUnverifiedSsl",
-        "default", "icon"
+        "allowExternalNavigation", "default", "icon"
     )
     private val ICON_KEYS = setOf("glyph", "vector", "background", "tint")
 
@@ -156,6 +161,7 @@ object AppVariants {
             requirePin = map.boolean("requirePin") ?: true,
             showMenu = map.boolean("showMenu") ?: true,
             allowUnverifiedSsl = map.boolean("allowUnverifiedSsl") ?: false,
+            allowExternalNavigation = map.boolean("allowExternalNavigation") ?: false,
             isDefault = isDefault,
             icon = parseIcon(map["icon"], "$where icon", fileName)
         )

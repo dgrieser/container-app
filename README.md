@@ -3,8 +3,9 @@
 An Android **kiosk container app**. It displays a set of web apps that are
 controlled centrally by a JSON file hosted on `david-grieser.de`. Users switch
 between the allowed web apps from an in-app menu, but cannot navigate the
-browser away to any other domain. An admin (PIN-protected) can point the app at
-a different configuration URL and change the PIN.
+browser away to any other domain — a variant may opt into letting off-domain
+links open *outside* the app, in the device's browser. An admin (PIN-protected)
+can point the app at a different configuration URL and change the PIN.
 
 One code base can ship as **several different apps**: name, icon, kiosk
 configuration and behaviour come from [`app-variants.yaml`](app-variants.yaml),
@@ -26,6 +27,12 @@ and the release pipeline builds one installable APK per entry. See
   domain are blocked — the page "will not work" for off-domain links, exactly as
   requested. Subdomains of the same registered domain are allowed (so `www.`,
   `cdn.`, `portal.` etc. work).
+- **External links, if the variant asks for them (opt-in).** A variant with
+  `allowExternalNavigation: true` doesn't refuse off-domain links but hands them
+  to **Android's default handler** — the browser, or whichever app claims that
+  link. The off-domain page still never loads inside the container: it opens
+  outside it, and the app stays on its own page. See
+  [External links](#external-links).
 - **Hamburger menu.** A small, translucent menu button sits at the
   **bottom-right**. It is deliberately unobtrusive: 36 dp, neutral grey, and it
   fades down to 30 % opacity a couple of seconds after the last touch, so it
@@ -85,6 +92,7 @@ variants:
     requirePin: false        # no PIN at all
     showMenu: false          # single page, no hamburger button
     allowUnverifiedSsl: true # server has a self-signed certificate
+    allowExternalNavigation: true  # off-domain links open in the browser
     versionNameSuffix: "-portal"
     icon:
       glyph: home
@@ -103,6 +111,7 @@ variants:
 | `requirePin` | no (`true`) | `false` = no PIN setup on first run and the admin menu opens without one. |
 | `showMenu` | no (`true`) | `false` = no hamburger button; the app shows a single page and cannot be switched. |
 | `allowUnverifiedSsl` | no (`false`) | `true` = the *Allow unverified certificates* switch starts on, for kiosks against a self-signed or internal-CA server. Still togglable per device in the admin menu. |
+| `allowExternalNavigation` | no (`false`) | `false` = an off-domain link is refused. `true` = it is opened by Android's default handler (browser or a matching app) instead, outside the container. Fixed per build. |
 | `icon.glyph` | no (`container`) | Built-in symbol: `container`, `equalizer`, `apps`, `dashboard`, `list`, `menu`, `home`, `monitor`, `chat`, `info`, `lock`, `bolt`, `star`, `circle`, `square`, `triangle`, `diamond`. |
 | `icon.vector` | no | Path (from the repo root) to your own 108×108 vector drawable, used instead of a glyph. |
 | `icon.background` | no (`#1F6FEB`) | Icon background colour, `#RRGGBB` or `#AARRGGBB`. |
@@ -177,6 +186,41 @@ The default URL is per variant (`configUrl` in
 admin menu; leaving the admin field empty restores the variant's own URL.
 Variants pinned to an absolute `defaultKioskPath` need no configuration file at
 all — see [App variants](#app-variants).
+
+## External links
+
+The domain lock decides what may load *inside* the container, and that never
+changes: a page from another domain is never shown in the app's own WebView.
+What a variant can choose is what happens to a link pointing there.
+
+By default (`allowExternalNavigation: false`) the navigation is refused and a
+short message names the domain the app is locked to — the off-domain link simply
+does not work, which is the point of a kiosk.
+
+With `allowExternalNavigation: true` in
+[`app-variants.yaml`](app-variants.yaml) the link is instead passed to Android
+as a plain `ACTION_VIEW` intent, so **the device's default handler** takes it:
+usually the browser, or an installed app that claims that link (a YouTube URL
+opening the YouTube app, say). The container keeps showing its own page, and the
+link opens in a task of its own, so coming back from the browser lands on the
+kiosk page again rather than somewhere in its history.
+
+This applies to taps on links, `target="_blank"` and redirects alike — anything
+that would otherwise have been blocked.
+
+Two limits are deliberate:
+
+- **Only `http` and `https` are handed over.** Other schemes (`mailto:`,
+  `intent:`, custom app schemes) stay blocked as before, so a page cannot use
+  the setting as a way to fire arbitrary intents at whatever else is installed.
+  The intent also carries `CATEGORY_BROWSABLE`, so only components that expect
+  links from the web can receive it.
+- **If nothing can open the URL, it counts as blocked** and the usual message is
+  shown, rather than the tap doing nothing at all.
+
+Unlike *Allow unverified certificates*, this is not an admin switch: it is fixed
+when the APK is built. Whether a kiosk may send its users off to the browser is a
+property of that kiosk, not something to be flipped on a device.
 
 ## Unverified certificates
 
@@ -307,7 +351,7 @@ buildSrc/src/main/kotlin/
   GenerateLauncherIconsTask.kt  Writes each variant's icon resources
 app/src/main/java/de/davidgrieser/container/
   MainActivity.kt        UI: WebView, pull-to-refresh, FAB, menu sheet, admin & PIN dialogs
-  KioskWebViewClient.kt  Enforces the domain lock & TLS-error policy
+  KioskWebViewClient.kt  Enforces the domain lock (& hand-off to the browser) and the TLS-error policy
   InsecureSsl.kt         Opt-in trust-all TLS for the app's own HTTP calls
   DomainRules.kt         Host / domain matching rules
   ConfigRepository.kt    Fetches & parses the remote JSON (with caching)
