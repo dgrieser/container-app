@@ -74,6 +74,7 @@ class AppVariantsTest {
         assertEquals("Container", container.gradleName)
         assertTrue(container.requirePin)
         assertTrue(container.showMenu)
+        assertEquals(ScreenModes.DEFAULT, container.screenMode)
         assertFalse(container.allowUnverifiedSsl)
         assertFalse(container.allowExternalNavigation)
         assertEquals("", container.defaultKioskPath)
@@ -120,6 +121,51 @@ class AppVariantsTest {
 
         assertFalse("off-domain links must be refused unless asked for", variants[0].allowExternalNavigation)
         assertTrue(variants[1].allowExternalNavigation)
+    }
+
+    @Test
+    fun `a variant can keep some of the system bars on screen`() {
+        val variants = load(
+            """
+            variants:
+              - id: edgetoedge
+                name: Edge
+                defaultKioskPath: https://edge.example.com/
+              - id: topbar
+                name: Top bar
+                defaultKioskPath: https://topbar.example.com/
+                screenMode: statusBar
+            """
+        )
+
+        assertEquals("fullscreen", variants[0].screenMode)
+        assertEquals("statusBar", variants[1].screenMode)
+    }
+
+    /**
+     * The build only validates the mode names; the app decides what each one
+     * does. A mode added on one side and forgotten on the other would either be
+     * rejected by the build or silently fall back to the default at runtime.
+     */
+    @Test
+    fun `the screen modes match the app's ScreenMode enum`() {
+        val source = File(
+            repoRoot(),
+            "app/src/main/java/de/davidgrieser/container/ScreenMode.kt"
+        )
+        assertTrue("${source.name} is missing", source.isFile)
+
+        val inApp = Regex("""^\s{4}[A-Z_]+\($""", RegexOption.MULTILINE)
+            .findAll(source.readText())
+            .count()
+        val ids = Regex(""""([a-zA-Z]+)",""")
+            .findAll(source.readText())
+            .map { it.groupValues[1] }
+            .filter { ScreenModes.isKnown(it) }
+            .toSet()
+
+        assertEquals("every screen mode needs an enum entry", ScreenModes.names.size, inApp)
+        assertEquals(ScreenModes.names.toSet(), ids)
     }
 
     @Test
@@ -172,6 +218,13 @@ class AppVariantsTest {
                 name: A
                 configUrl: https://example.com/k.json
                 allowExternalNavigation: sometimes
+        """)
+        assertRejected("unknown screenMode", """
+            variants:
+              - id: a
+                name: A
+                configUrl: https://example.com/k.json
+                screenMode: cinema
         """)
         assertRejected("unknown glyph", """
             variants:

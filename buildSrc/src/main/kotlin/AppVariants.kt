@@ -37,6 +37,11 @@ data class AppVariant(
     val requirePin: Boolean,
     /** When false, no hamburger button is shown and the app is single-page. */
     val showMenu: Boolean,
+    /**
+     * Which system bars stay visible over the page: one of [ScreenModes.names].
+     * Only the starting point — the admin menu can change it per device.
+     */
+    val screenMode: String,
     /** Initial state of the admin's "allow unverified certificates" switch. */
     val allowUnverifiedSsl: Boolean,
     /**
@@ -65,8 +70,8 @@ object AppVariants {
     private val TOP_LEVEL_KEYS = setOf("applicationId", "variants")
     private val VARIANT_KEYS = setOf(
         "id", "name", "applicationId", "versionNameSuffix", "configUrl",
-        "defaultKioskPath", "requirePin", "showMenu", "allowUnverifiedSsl",
-        "allowExternalNavigation", "default", "icon"
+        "defaultKioskPath", "requirePin", "showMenu", "screenMode",
+        "allowUnverifiedSsl", "allowExternalNavigation", "default", "icon"
     )
     private val ICON_KEYS = setOf("glyph", "vector", "background", "tint")
 
@@ -151,6 +156,14 @@ object AppVariants {
             error("$where: configUrl `$configUrl` must be an absolute http(s) URL.")
         }
 
+        val screenMode = map.string("screenMode") ?: ScreenModes.DEFAULT
+        if (!ScreenModes.isKnown(screenMode)) {
+            error(
+                "$where: unknown screenMode `$screenMode`. " +
+                    "Available: ${ScreenModes.names.joinToString()}."
+            )
+        }
+
         return AppVariant(
             id = id,
             name = name,
@@ -160,6 +173,7 @@ object AppVariants {
             defaultKioskPath = defaultKioskPath,
             requirePin = map.boolean("requirePin") ?: true,
             showMenu = map.boolean("showMenu") ?: true,
+            screenMode = screenMode,
             allowUnverifiedSsl = map.boolean("allowUnverifiedSsl") ?: false,
             allowExternalNavigation = map.boolean("allowExternalNavigation") ?: false,
             isDefault = isDefault,

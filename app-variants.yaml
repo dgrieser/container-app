@@ -32,6 +32,16 @@
 #                      shows a single page and cannot be switched (the admin
 #                      menu is then reached by long-pressing the bottom-right
 #                      corner).
+#   screenMode         optional (fullscreen). Which of Android's own bars stay on
+#                      screen over the page:
+#                        fullscreen    — neither bar; the page owns the display.
+#                        statusBar     — top bar (clock, battery, notifications)
+#                                        stays, navigation bar hidden.
+#                        navigationBar — navigation bar stays, status bar hidden.
+#                        systemBars    — both stay, page between them.
+#                      A hidden bar can still be swiped in for a moment. This is
+#                      only the starting point: the admin menu can change it per
+#                      device.
 #   allowUnverifiedSsl optional (false). true = ship with "allow unverified
 #                      certificates" already on, for kiosks against a server
 #                      with a self-signed certificate or an internal CA. The
@@ -86,13 +96,17 @@ variants:
   # the page links out to places worth following. Its symbol is also the first
   # that is not a built-in glyph but the site's own artwork, checked in as a
   # vector drawable and used as the icon foreground verbatim — which is why no
-  # `tint` is given here: that drawable carries its own colours.
+  # `tint` is given here: that drawable carries its own colours. It is also the
+  # first variant that is not edge-to-edge: `screenMode: statusBar` keeps the
+  # clock, the battery and the notifications above the page, which suits a build
+  # that is read like a website rather than staring at a wall as a dashboard.
   - id: gasoline
     name: Gasoline
     defaultKioskPath: https://gasoline.david-grieser.de/
     requirePin: false
     showMenu: false
     allowExternalNavigation: true
+    screenMode: statusBar
     versionNameSuffix: "-gasoline"
     icon:
       vector: app-icons/gasoline.xml

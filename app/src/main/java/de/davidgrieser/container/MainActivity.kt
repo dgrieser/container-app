@@ -16,8 +16,8 @@ import android.webkit.WebView
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
-import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.core.view.isVisible
 import androidx.lifecycle.lifecycleScope
@@ -71,7 +71,7 @@ class MainActivity : AppCompatActivity() {
         pinManager = PinManager(prefs)
         repository = ConfigRepository(prefs)
 
-        enableImmersiveMode()
+        applyScreenMode()
         setupWebView()
 
         // Variants that pin the app to a single page hide the menu entirely; the
@@ -352,6 +352,7 @@ class MainActivity : AppCompatActivity() {
             .ifEmpty { getString(R.string.admin_config_url_optional) }
         view.allowUnverifiedSslSwitch.isChecked = prefs.allowUnverifiedSsl
         view.btnChangePin.isVisible = BuildConfig.REQUIRE_PIN
+        val pickedScreenMode = setupScreenModePicker(view)
 
         val dialog = MaterialAlertDialogBuilder(this)
             .setTitle(R.string.admin_title)
@@ -365,7 +366,7 @@ class MainActivity : AppCompatActivity() {
             promptChangePin()
         }
         view.btnReload.setOnClickListener {
-            if (saveAdminSettings(view)) {
+            if (saveAdminSettings(view, pickedScreenMode())) {
                 dialog.dismiss()
                 Toast.makeText(this, R.string.reloading, Toast.LENGTH_SHORT).show()
                 loadConfig()
@@ -374,9 +375,9 @@ class MainActivity : AppCompatActivity() {
 
         dialog.setOnShowListener {
             dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-                if (saveAdminSettings(view)) {
+                if (saveAdminSettings(view, pickedScreenMode())) {
                     dialog.dismiss()
-                    Toast.makeText(this, R.string.admin_url_saved, Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, R.string.admin_saved, Toast.LENGTH_SHORT).show()
                     loadConfig()
                 }
             }
@@ -385,18 +386,46 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * Validates and persists the admin settings (config URL and TLS handling).
-     * Returns false (and shows an error) if the URL is invalid. An empty field
-     * means "use this variant's built-in URL" — and for a variant that ships
-     * without one, that no configuration file is read at all.
+     * Fills the screen-mode dropdown with the [ScreenMode] labels, preselects the
+     * current one and keeps the explanation underneath in step with the choice.
+     * Returns a getter for what is selected right now, because the dialog only
+     * persists it when the settings are saved.
      */
-    private fun saveAdminSettings(view: DialogAdminBinding): Boolean {
+    private fun setupScreenModePicker(view: DialogAdminBinding): () -> ScreenMode {
+        val modes = ScreenMode.entries
+        var selected = prefs.screenMode
+        view.screenModeInput.setSimpleItems(
+            modes.map { getString(it.labelRes) }.toTypedArray()
+        )
+        // filter = false: this is a fixed list, not something to type into, so the
+        // text must not narrow the popup down to itself.
+        view.screenModeInput.setText(getString(selected.labelRes), false)
+        view.screenModeHint.setText(selected.descriptionRes)
+        view.screenModeInput.setOnItemClickListener { _, _, position, _ ->
+            selected = modes[position]
+            view.screenModeHint.setText(selected.descriptionRes)
+        }
+        return { selected }
+    }
+
+    /**
+     * Validates and persists the admin settings (config URL, screen mode and TLS
+     * handling). Returns false (and shows an error) if the URL is invalid. An
+     * empty field means "use this variant's built-in URL" — and for a variant
+     * that ships without one, that no configuration file is read at all.
+     */
+    private fun saveAdminSettings(view: DialogAdminBinding, screenMode: ScreenMode): Boolean {
         val url = view.configUrlInput.text?.toString()?.trim().orEmpty()
         if (url.isNotEmpty() && !DomainRules.isHttp(url)) {
             Toast.makeText(this, R.string.admin_url_invalid, Toast.LENGTH_SHORT).show()
             return false
         }
         prefs.configUrl = url
+
+        if (screenMode != prefs.screenMode) {
+            prefs.screenMode = screenMode
+            applyScreenMode()
+        }
 
         val allowUnverifiedSsl = view.allowUnverifiedSslSwitch.isChecked
         if (allowUnverifiedSsl != prefs.allowUnverifiedSsl) {
@@ -596,19 +625,52 @@ class MainActivity : AppCompatActivity() {
         idleHandler.removeCallbacks(openAdminMenu)
     }
 
-    // --- Immersive mode ----------------------------------------------------
+    // --- Screen mode -------------------------------------------------------
 
-    private fun enableImmersiveMode() {
+    /**
+     * Puts the window into the configured [ScreenMode]: the bars that mode wants
+     * are shown, every other one is hidden, and the layout is padded so a visible
+     * bar sits next to the page instead of over it.
+     *
+     * A hidden bar can still be swiped in for a moment. That does not change any
+     * inset, so the page never jumps when the user peeks at the clock.
+     */
+    private fun applyScreenMode() {
+        val mode = prefs.screenMode
         WindowCompat.setDecorFitsSystemWindows(window, false)
         val controller = WindowInsetsControllerCompat(window, binding.root)
         controller.systemBarsBehavior =
             WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-        controller.hide(WindowInsetsCompat.Type.systemBars())
+        if (mode.hiddenBars != 0) controller.hide(mode.hiddenBars)
+        if (mode.visibleBars != 0) controller.show(mode.visibleBars)
+        // A bar this mode keeps on screen sits over @color/background, which is
+        // light, so its icons have to be dark to be readable. Bars that are only
+        // swiped in transiently keep the theme's light icons: the system draws
+        // them over a scrim of its own, on top of the page.
+        controller.isAppearanceLightStatusBars = mode.showsStatusBar
+        controller.isAppearanceLightNavigationBars = mode.showsNavigationBar
+        padForVisibleBars(mode)
+    }
+
+    /**
+     * Keeps the page clear of the bars [mode] leaves visible. Only their insets
+     * are used, so full-screen mode still draws into the display cutout as
+     * before, and the padding follows the bars when the device is rotated.
+     */
+    private fun padForVisibleBars(mode: ScreenMode) {
+        ViewCompat.setOnApplyWindowInsetsListener(binding.root) { view, windowInsets ->
+            val bars = windowInsets.getInsets(mode.visibleBars)
+            view.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+            windowInsets
+        }
+        binding.root.requestApplyInsets()
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
-        if (hasFocus) enableImmersiveMode()
+        // Regaining focus (after a dialog, the recents screen, a transient bar)
+        // drops the requested visibility, so the mode is asked for again.
+        if (hasFocus) applyScreenMode()
     }
 
     override fun onPause() {

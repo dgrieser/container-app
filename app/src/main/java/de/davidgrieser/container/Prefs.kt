@@ -9,8 +9,8 @@ import org.json.JSONObject
 
 /**
  * Thin wrapper around [SharedPreferences] holding all persisted state:
- * the PIN (salted hash), the configuration URL, the last-known-good config
- * and the currently selected app.
+ * the PIN (salted hash), the configuration URL, the screen mode, the
+ * last-known-good config and the currently selected app.
  */
 class Prefs(context: Context) {
 
@@ -55,6 +55,18 @@ class Prefs(context: Context) {
         get() = sp.getBoolean(KEY_ALLOW_UNVERIFIED_SSL, BuildConfig.ALLOW_UNVERIFIED_SSL)
         set(value) = sp.edit().putBoolean(KEY_ALLOW_UNVERIFIED_SSL, value).apply()
 
+    // --- Screen mode ---------------------------------------------------------
+
+    /**
+     * Which system bars stay visible over the page. Starts at the variant's
+     * `screenMode` and then stays whatever the admin last picked.
+     */
+    var screenMode: ScreenMode
+        get() = ScreenMode.fromId(
+            sp.getString(KEY_SCREEN_MODE, null) ?: BuildConfig.SCREEN_MODE
+        )
+        set(value) = sp.edit().putString(KEY_SCREEN_MODE, value.id).apply()
+
     // --- Selected app -------------------------------------------------------
 
     var selectedAppUrl: String?
@@ -98,6 +110,7 @@ class Prefs(context: Context) {
         private const val KEY_PIN_SALT = "pin_salt"
         private const val KEY_CONFIG_URL = "config_url"
         private const val KEY_ALLOW_UNVERIFIED_SSL = "allow_unverified_ssl"
+        private const val KEY_SCREEN_MODE = "screen_mode"
         private const val KEY_SELECTED_APP = "selected_app_url"
         private const val KEY_CACHED_CONFIG = "cached_config"
     }

@@ -54,6 +54,9 @@ android {
                 )
                 buildConfigField("boolean", "REQUIRE_PIN", variant.requirePin.toString())
                 buildConfigField("boolean", "SHOW_MENU", variant.showMenu.toString())
+                // Which system bars this build starts out showing; the admin menu
+                // can change it per device.
+                buildConfigField("String", "SCREEN_MODE", javaStringLiteral(variant.screenMode))
                 // Initial value of the admin switch; still togglable at runtime.
                 buildConfigField(
                     "boolean",
