@@ -1,8 +1,10 @@
 package de.davidgrieser.container
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
@@ -12,11 +14,15 @@ import android.util.Log
 import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.ViewConfiguration
+import android.webkit.GeolocationPermissions
 import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.StringRes
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -47,6 +53,32 @@ class MainActivity : AppCompatActivity() {
 
     /** Guards against a toast per failing sub-resource; reset on every page load. */
     private var sslErrorReported = false
+
+    /** Same, for a page that asks for the position again after being refused. */
+    private var locationRefusalReported = false
+
+    /**
+     * The page's pending request for the device's position, waiting for Android's
+     * own permission dialog to come back.
+     */
+    private var pendingLocationRequest: Pair<String, GeolocationPermissions.Callback>? = null
+
+    /**
+     * Asks Android for the location permission on the page's behalf. Registered
+     * here rather than on demand because a launcher has to exist before the
+     * activity starts.
+     */
+    private val locationPermissionRequest = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { grants ->
+        val (origin, callback) = pendingLocationRequest ?: return@registerForActivityResult
+        pendingLocationRequest = null
+        // Either one is enough: from Android 12 the user may pick the coarse
+        // permission alone, which still yields a position, just a rougher one.
+        val granted = grants.values.any { it }
+        callback.invoke(origin, granted, false)
+        if (!granted) reportLocationRefusal(R.string.location_permission_denied)
+    }
 
     private val idleHandler = Handler(Looper.getMainLooper())
 
@@ -219,6 +251,7 @@ class MainActivity : AppCompatActivity() {
             },
             onPageStarted = {
                 sslErrorReported = false
+                locationRefusalReported = false
                 binding.progress.isVisible = true
             },
             onPageFinished = {
@@ -237,6 +270,19 @@ class MainActivity : AppCompatActivity() {
                     binding.progress.progress = newProgress
                     binding.progress.isVisible = newProgress in 1..99
                 }
+
+                override fun onGeolocationPermissionsShowPrompt(
+                    origin: String?,
+                    callback: GeolocationPermissions.Callback?
+                ) {
+                    onLocationRequested(origin, callback)
+                }
+
+                override fun onGeolocationPermissionsHidePrompt() {
+                    // The page gave up on the request (a navigation, usually), so
+                    // a permission result arriving now has nothing to answer.
+                    pendingLocationRequest = null
+                }
             }
             settings.apply {
                 javaScriptEnabled = true
@@ -251,6 +297,10 @@ class MainActivity : AppCompatActivity() {
                 allowFileAccess = false
                 allowContentAccess = false
                 mediaPlaybackRequiresUserGesture = true
+                // A build without location does not merely refuse the prompt: the
+                // page's `navigator.geolocation` fails outright, which is the
+                // answer a page can actually handle.
+                setGeolocationEnabled(BuildConfig.ALLOW_LOCATION)
             }
         }
     }
@@ -297,6 +347,67 @@ class MainActivity : AppCompatActivity() {
                 loadConfig()
             }
         }
+    }
+
+    // --- Location ----------------------------------------------------------
+
+    /**
+     * Answers the page's request for the device's position. Three things have to
+     * hold, in this order: the build allows location at all, the asking origin is
+     * inside the domain lock, and Android has granted the app the permission —
+     * which is requested here when it has not.
+     *
+     * The answer is deliberately never retained. The WebView would stop asking,
+     * and a permission later revoked in Android's settings could then no longer
+     * be noticed; asking again costs nothing, because a permission already held
+     * needs no dialog.
+     */
+    private fun onLocationRequested(origin: String?, callback: GeolocationPermissions.Callback?) {
+        if (callback == null) return
+        if (origin.isNullOrBlank()) {
+            callback.invoke("", false, false)
+            return
+        }
+        if (!BuildConfig.ALLOW_LOCATION) {
+            // Belt and braces: geolocation is switched off in the WebView's own
+            // settings for such a build, so the page never gets this far.
+            callback.invoke(origin, false, false)
+            return
+        }
+        // The position is as much the page's to ask for as anything else it does,
+        // so the domain lock decides here too: an embedded third-party frame
+        // cannot borrow the permission the anchored site was granted.
+        if (!DomainRules.isAllowed(currentApp?.url, origin)) {
+            callback.invoke(origin, false, false)
+            reportLocationRefusal(
+                R.string.location_blocked,
+                DomainRules.host(origin) ?: getString(R.string.ssl_blocked_host)
+            )
+            return
+        }
+        if (hasLocationPermission()) {
+            callback.invoke(origin, true, false)
+            return
+        }
+        // Only one request can be waiting on the dialog. Should a second arrive
+        // first, answer it rather than leaving the page waiting on a promise
+        // nothing will ever settle; it can ask again.
+        pendingLocationRequest?.let { (pendingOrigin, pending) ->
+            pending.invoke(pendingOrigin, false, false)
+        }
+        pendingLocationRequest = origin to callback
+        locationPermissionRequest.launch(LOCATION_PERMISSIONS)
+    }
+
+    private fun hasLocationPermission(): Boolean = LOCATION_PERMISSIONS.any {
+        ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED
+    }
+
+    /** One explanation per page load, as for a failing certificate. */
+    private fun reportLocationRefusal(@StringRes message: Int, vararg formatArgs: Any) {
+        if (locationRefusalReported) return
+        locationRefusalReported = true
+        Toast.makeText(this, getString(message, *formatArgs), Toast.LENGTH_LONG).show()
     }
 
     // --- Menu --------------------------------------------------------------
@@ -711,5 +822,15 @@ class MainActivity : AppCompatActivity() {
         /** Hidden admin gesture: hold this corner square for this long. */
         private const val ADMIN_CORNER_DP = 72f
         private const val ADMIN_HOLD_MS = 1_500L
+
+        /**
+         * Asked for together, and either one will do: from Android 12 the user
+         * may grant only the coarse permission, which still yields a position.
+         * Declared in the manifest of variants built with `allowLocation` only.
+         */
+        private val LOCATION_PERMISSIONS = arrayOf(
+            Manifest.permission.ACCESS_FINE_LOCATION,
+            Manifest.permission.ACCESS_COARSE_LOCATION
+        )
     }
 }

@@ -54,5 +54,7 @@
     <string name="nav_blocked">Navigation outside %1$s is blocked.</string>
     <string name="ssl_blocked">Blocked: the certificate of %1$s couldn\'t be verified. Enable unverified certificates in the admin menu to load it anyway.</string>
     <string name="ssl_blocked_host">this site</string>
+    <string name="location_blocked">%1$s asked for your location from outside this app\'s domain. Refused.</string>
+    <string name="location_permission_denied">Without the location permission this page can\'t use your position. You can grant it in Android\'s app settings.</string>
     <string name="reloading">Reloading configuration…</string>
 </resources>

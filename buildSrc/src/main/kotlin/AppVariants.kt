@@ -61,6 +61,12 @@ data class AppVariant(
      * default handler (usually the browser) instead of being refused.
      */
     val allowExternalNavigation: Boolean,
+    /**
+     * When true, the page may ask for the device's position, and the build
+     * declares the location permissions that makes possible. A variant without
+     * it carries no location permission at all.
+     */
+    val allowLocation: Boolean,
     val isDefault: Boolean,
     val icon: LauncherIcon
 ) {
@@ -83,7 +89,8 @@ object AppVariants {
     private val VARIANT_KEYS = setOf(
         "id", "name", "applicationId", "versionNameSuffix", "configUrl",
         "defaultKioskPath", "requirePin", "showMenu", "screenMode", "barColor",
-        "allowUnverifiedSsl", "allowExternalNavigation", "default", "icon"
+        "allowUnverifiedSsl", "allowExternalNavigation", "allowLocation",
+        "default", "icon"
     )
     private val ICON_KEYS = setOf("glyph", "vector", "background", "tint")
     private val BAR_COLOR_KEYS = setOf("light", "dark")
@@ -193,6 +200,7 @@ object AppVariants {
             barColor = parseBarColors(map["barColor"], "$where barColor", fileName),
             allowUnverifiedSsl = map.boolean("allowUnverifiedSsl") ?: false,
             allowExternalNavigation = map.boolean("allowExternalNavigation") ?: false,
+            allowLocation = map.boolean("allowLocation") ?: false,
             isDefault = isDefault,
             icon = parseIcon(map["icon"], "$where icon", fileName)
         )
