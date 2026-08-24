@@ -1,0 +1,29 @@
+// Build settings shared by every variant. Hand-written.
+//
+// Each variant's generated Variant.xcconfig chains this in, because a
+// target-level config file in Xcode *replaces* the project-level one rather than
+// adding to it.
+
+// Warnings the app is expected to be clean of. Not -Werror: a compiler upgrade
+// introducing a new warning should not stop a release from building.
+SWIFT_VERSION = 5.9
+SWIFT_STRICT_CONCURRENCY = complete
+CLANG_ENABLE_MODULES = YES
+CLANG_ENABLE_OBJC_ARC = YES
+GCC_NO_COMMON_BLOCKS = YES
+ENABLE_STRICT_OBJC_MSGSEND = YES
+
+// The app draws its own page edge to edge and paints the strip behind the status
+// bar itself, so there is no storyboard and no launch image to keep in step —
+// UILaunchScreen in the generated Info.plist is an empty dictionary.
+ENABLE_USER_SCRIPT_SANDBOXING = YES
+ENABLE_MODULE_VERIFIER = YES
+
+// Symbols for a released build, so a crash report from an installed app can be
+// read. The dSYMs are attached to the GitHub release alongside the .ipa.
+DEBUG_INFORMATION_FORMAT = dwarf-with-dsym
+
+// Optional, and git-ignored: a developer's own team and signing style, so a
+// local build can run on a device without editing anything that is committed.
+// This is the counterpart of android/keystore.properties.
+#include? "../signing.local.xcconfig"

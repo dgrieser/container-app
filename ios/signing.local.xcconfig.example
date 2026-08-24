@@ -1,0 +1,13 @@
+// Copy to signing.local.xcconfig (git-ignored) to sign local builds with your
+// own Apple ID, so a build can run on a device straight out of Xcode.
+//
+// This is the iOS counterpart of android/keystore.properties: absent, builds
+// are simply left unsigned and everything still succeeds. Releases are signed
+// by CI, or -- for the AltStore source -- not at all, because AltStore re-signs
+// each app on the device with the installing user's own Apple ID.
+
+CODE_SIGN_STYLE = Automatic
+DEVELOPMENT_TEAM = ABCDE12345
+CODE_SIGN_IDENTITY = Apple Development
+CODE_SIGNING_REQUIRED = YES
+CODE_SIGNING_ALLOWED = YES

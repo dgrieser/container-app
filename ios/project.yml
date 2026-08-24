@@ -1,0 +1,81 @@
+# How the iOS apps are built. Hand-written: this file is where a build setting
+# changes, and it should be the only place one does.
+#
+# The other half of the spec — one target and one scheme per variant — is
+# generated into Generated/variants.yml from app-variants.yaml, and merged in
+# below. That split is the point: adding a variant touches only the generated
+# half, changing how the app is built touches only this one, and neither
+# requires editing a .pbxproj.
+#
+#   make project       regenerate everything and write Container.xcodeproj
+#
+# The .xcodeproj is not checked in, in the same spirit as the launcher icons:
+# it is derived from files that are.
+
+name: Container
+
+include:
+  # One target and one scheme per entry in ../app-variants.yaml.
+  - path: Generated/variants.yml
+
+options:
+  bundleIdPrefix: de.davidgrieser.container
+  deploymentTarget:
+    # WKWebView geolocation and UILaunchScreen both want 15; nothing here needs
+    # more. Raising it later is a one-line change with no code consequence.
+    iOS: "15.0"
+  createIntermediateGroups: true
+  groupSortPosition: top
+  # A generated project should not go stale silently: if the spec is newer than
+  # the project, regenerate rather than build what was there before.
+  generateEmptyDirectories: true
+
+configs:
+  Debug: debug
+  Release: release
+
+packages:
+  # All the runtime code. A local path package, so there is nothing to resolve
+  # over the network — and, more usefully, SwiftPM globs its sources at build
+  # time where XcodeGen globs at generation time. Adding a Swift file therefore
+  # needs no `make project`; only adding a variant does.
+  ContainerKit:
+    path: ContainerKit
+
+configFiles:
+  Debug: Config/Base.xcconfig
+  Release: Config/Base.xcconfig
+
+targetTemplates:
+  # Every variant is this template plus three attributes. Nothing variant-specific
+  # is written here; the values come from Generated/variants.yml.
+  Variant:
+    type: application
+    platform: iOS
+    sources:
+      # Four generated files: main.swift, VariantConfig.swift, Info.plist and the
+      # asset catalogue holding this variant's app icon.
+      - path: Generated/Variants/${variantId}
+    dependencies:
+      - package: ContainerKit
+        product: ContainerKit
+    configFiles:
+      Debug: Generated/Variants/${variantId}/Variant.xcconfig
+      Release: Generated/Variants/${variantId}/Variant.xcconfig
+    settings:
+      base:
+        PRODUCT_NAME: ${variantId}
+        PRODUCT_BUNDLE_IDENTIFIER: ${bundleId}
+        INFOPLIST_FILE: Generated/Variants/${variantId}/Info.plist
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        # Phone and tablet, like the Android build: no fixed orientation, a
+        # responsive page, and edge to edge either way.
+        TARGETED_DEVICE_FAMILY: "1,2"
+        # Signing is decided by the environment, not by the project: CI passes
+        # its own flags, and a developer drops a signing.local.xcconfig next to
+        # this file. See Config/Base.xcconfig.
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGN_IDENTITY: ""
+        DEVELOPMENT_TEAM: ""
+        CODE_SIGNING_REQUIRED: "NO"
+        CODE_SIGNING_ALLOWED: "NO"

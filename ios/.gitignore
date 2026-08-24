@@ -1,0 +1,19 @@
+# Written by ios/tools/generate.py, in its entirety.
+Generated/
+
+# Written by XcodeGen from project.yml, so it is derived, not source. The cost
+# is one `make project` after pulling a change to project.yml or
+# app-variants.yaml; the benefit is never resolving a .pbxproj merge conflict.
+*.xcodeproj
+*.xcworkspace
+
+# Local signing material, like android/keystore.properties.
+signing.local.xcconfig
+
+# Build products.
+build/
+.build/
+DerivedData/
+*.xcarchive
+*.ipa
+*.dSYM.zip

@@ -1,0 +1,11 @@
+# The generator itself needs only PyYAML; CairoSVG is for drawing the app icons.
+#
+# CairoSVG needs the cairo library, which is already present on GitHub's
+# ubuntu-latest runners:
+#     Debian/Ubuntu   apt install libcairo2
+#     macOS           brew install cairo
+#
+# Without it, generate.py --skip-icons still produces a complete, openable
+# project; Xcode then warns about the missing icon image.
+PyYAML>=6.0
+CairoSVG>=2.7
