@@ -5,14 +5,20 @@
         <item name="colorPrimary">@color/brand_primary</item>
         <item name="colorPrimaryDark">@color/brand_primary_dark</item>
         <item name="colorOnPrimary">@color/brand_on_primary</item>
+        <!--
+            Starting point, and what full-screen mode keeps: no bars, so nothing
+            to paint. A screen mode that keeps a bar has the activity paint it in
+            the variant's `barColor` instead, and pick its icon colour from that.
+        -->
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar" tools:targetApi="m">false</item>
         <!--
-            The activity hides the system bars, so a display cutout is no longer
-            "contained within a system bar" and the default layout mode would
-            letterbox the window below it — a black band across the top. Let the
-            window use the cutout area instead so the page really is full-screen.
+            With the system bars hidden a display cutout is no longer "contained
+            within a system bar", and the default layout mode would letterbox the
+            window below it — a black band across the top. Let the window use the
+            cutout area instead so the page really is full-screen; the screen
+            modes that keep a bar pad the page below it themselves.
         -->
         <item name="android:windowLayoutInDisplayCutoutMode" tools:targetApi="o_mr1">shortEdges</item>
     </style>

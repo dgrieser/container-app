@@ -27,13 +27,22 @@
     <string name="admin_config_url">Configuration URL</string>
     <string name="admin_config_url_hint">https://david-grieser.de/kiosk.json</string>
     <string name="admin_config_url_optional">Optional — this build opens its own page</string>
+    <string name="admin_screen_mode">Screen mode</string>
+    <string name="screen_mode_fullscreen">Full screen</string>
+    <string name="screen_mode_fullscreen_hint">The page uses the whole display. Swipe in from an edge to see the status or navigation bar for a moment.</string>
+    <string name="screen_mode_status_bar">Full screen, status bar visible</string>
+    <string name="screen_mode_status_bar_hint">Keeps the top bar — clock, battery and notifications — above the page. The navigation bar stays hidden.</string>
+    <string name="screen_mode_navigation_bar">Full screen, navigation bar visible</string>
+    <string name="screen_mode_navigation_bar_hint">Keeps the bottom navigation bar (back, home, recents) below the page. The status bar stays hidden.</string>
+    <string name="screen_mode_system_bars">Status and navigation bars visible</string>
+    <string name="screen_mode_system_bars_hint">Both bars stay in view and the page sits between them, like an ordinary app.</string>
     <string name="admin_allow_unverified_ssl">Allow unverified certificates</string>
     <string name="admin_allow_unverified_ssl_hint">Load pages even when the HTTPS certificate can\'t be verified (self-signed, expired, unknown CA or wrong host name). Only use this on a trusted network — the connection is no longer protected against interception.</string>
     <string name="admin_change_pin">Change PIN</string>
     <string name="admin_reload">Reload configuration</string>
     <string name="admin_save">Save</string>
     <string name="admin_cancel">Cancel</string>
-    <string name="admin_url_saved">Configuration URL saved.</string>
+    <string name="admin_saved">Settings saved.</string>
     <string name="admin_url_invalid">Please enter a valid http(s) URL.</string>
 
     <!-- Config / errors -->

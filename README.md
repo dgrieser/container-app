@@ -39,14 +39,23 @@ and the release pipeline builds one installable APK per entry. See
   barely registers over the page until you reach for it. Tapping it opens a
   bottom sheet to switch between the allowed apps. Variants with
   `showMenu: false` drop the button entirely and show a single page.
+- **Screen modes.** How much of Android's own UI stays over the page is a
+  setting, not a given: full screen (the default), full screen with the status
+  bar, full screen with the navigation bar, or both bars in view. A variant
+  declares its starting point with `screenMode`, and the admin menu changes it
+  per device. A bar that stays is painted in the variant's own `barColor` — one
+  for light mode, one for dark — so the strip reads as part of the page rather
+  than a white band above it. See [Screen modes](#screen-modes).
 - **Pull to refresh.** Sliding down with a finger from the top of the page
   reloads it, the way browser apps do. The gesture only fires when the page is
-  already scrolled to the top, so it never interferes with scrolling. Because
-  the app runs full-screen, start the swipe just below the very top edge —
-  a swipe from the edge itself is taken by the system to reveal the status bar.
+  already scrolled to the top, so it never interferes with scrolling. In
+  full-screen mode, start the swipe just below the very top edge — a swipe from
+  the edge itself is taken by the system to reveal the status bar. A screen mode
+  that keeps the status bar has no such edge to share.
 - **Admin menu (PIN-protected).** An **Admin** entry in the menu asks for the
   PIN, then lets you:
   - set the **configuration URL** (which JSON file to read),
+  - pick the **screen mode** (which system bars stay over the page),
   - allow **unverified certificates** (see below),
   - **reload** the configuration,
   - **change the PIN**.
@@ -61,8 +70,8 @@ and the release pipeline builds one installable APK per entry. See
 - **First-run PIN setup.** On first launch the app requires you to create a PIN
   before continuing — unless the variant sets `requirePin: false`, in which case
   no PIN is asked for and the admin menu opens straight away.
-- **Phones and tablets.** No fixed orientation, responsive layout, immersive
-  full-screen.
+- **Phones and tablets.** No fixed orientation, responsive layout, full-screen
+  by default and edge-to-edge either way.
 - **Offline resilience.** The last successfully loaded configuration is cached,
   so the app still works if the server is temporarily unreachable.
 
@@ -91,6 +100,10 @@ variants:
     defaultKioskPath: https://portal.david-grieser.de/   # pinned, so no configUrl
     requirePin: false        # no PIN at all
     showMenu: false          # single page, no hamburger button
+    screenMode: statusBar    # keep the clock and battery above the page
+    barColor:                # …in a strip that matches the page, per system theme
+      light: "#FAFAFA"
+      dark: "#101418"
     allowUnverifiedSsl: true # server has a self-signed certificate
     allowExternalNavigation: true  # off-domain links open in the browser
     versionNameSuffix: "-portal"
@@ -110,6 +123,9 @@ variants:
 | `defaultKioskPath` | no | Which page to open first (see below). Empty = first app in the `kiosk.json`. |
 | `requirePin` | no (`true`) | `false` = no PIN setup on first run and the admin menu opens without one. |
 | `showMenu` | no (`true`) | `false` = no hamburger button; the app shows a single page and cannot be switched. |
+| `screenMode` | no (`fullscreen`) | Which system bars stay over the page: `fullscreen` (neither), `statusBar` (top bar only), `navigationBar` (bottom bar only), `systemBars` (both). Only the starting point — changeable per device in the admin menu. See [Screen modes](#screen-modes). |
+| `barColor.light` | no (`#FFFFFF`) | Colour of the bars `screenMode` keeps while the device is in light mode, `#RRGGBB` or `#AARRGGBB`. Fixed per build. |
+| `barColor.dark` | no (`#FFFFFF`) | The same for dark mode. |
 | `allowUnverifiedSsl` | no (`false`) | `true` = the *Allow unverified certificates* switch starts on, for kiosks against a self-signed or internal-CA server. Still togglable per device in the admin menu. |
 | `allowExternalNavigation` | no (`false`) | `false` = an off-domain link is refused. `true` = it is opened by Android's default handler (browser or a matching app) instead, outside the container. Fixed per build. |
 | `icon.glyph` | no (`container`) | Built-in symbol: `container`, `equalizer`, `apps`, `dashboard`, `list`, `menu`, `home`, `monitor`, `chat`, `info`, `lock`, `bolt`, `star`, `circle`, `square`, `triangle`, `diamond`. |
@@ -186,6 +202,68 @@ The default URL is per variant (`configUrl` in
 admin menu; leaving the admin field empty restores the variant's own URL.
 Variants pinned to an absolute `defaultKioskPath` need no configuration file at
 all — see [App variants](#app-variants).
+
+## Screen modes
+
+Android's status and navigation bars are hidden by default: the page owns the
+whole display, cutout included. That is right for a dashboard on a wall and
+wrong for a build people hold in their hands and read, so it is a setting.
+
+| `screenMode` | What stays on screen |
+|---|---|
+| `fullscreen` | Neither bar. The default, and what every build did before this setting existed. |
+| `statusBar` | The top bar — clock, battery, notifications. The navigation bar stays hidden. |
+| `navigationBar` | The bottom navigation bar (back, home, recents). The status bar stays hidden. |
+| `systemBars` | Both bars, with the page between them, like an ordinary app. |
+
+A variant picks where it starts in
+[`app-variants.yaml`](app-variants.yaml); Admin → **Screen mode** changes it
+per device and applies it immediately, no restart. The `gasoline` variant ships
+as `statusBar`, everything else as `fullscreen`.
+
+Two details are worth knowing:
+
+- **A hidden bar can still be swiped in** from its edge and disappears again on
+  its own. That is deliberate: nobody is locked out of the clock or the back
+  button. Such a bar floats over the page without changing the layout, so the
+  page never jumps.
+- **A bar that stays gets its own strip.** The page is padded below the status
+  bar and above the navigation bar instead of hiding underneath them, and the
+  padding follows the bars when the device is rotated. Full-screen mode keeps
+  drawing into the display cutout, as before.
+
+### What colour the bars are
+
+A strip only disappears into the page if it is the colour the page has at that
+edge, and that colour is usually not the same by day and by night. So a variant
+declares both:
+
+```yaml
+  - id: portal
+    name: Portal
+    defaultKioskPath: https://portal.david-grieser.de/
+    screenMode: systemBars
+    barColor:
+      light: "#FAFAFA"     # what the page shows at its edges in light mode
+      dark: "#101418"      # …and in dark mode
+```
+
+- Only a bar the mode **keeps** is painted. A hidden one has nothing to paint,
+  and a transiently swiped-in bar keeps the system's own backdrop over the page.
+- The **icons in the bar** — clock, battery, nav glyphs — are darkened or
+  lightened to suit the colour behind them, measured by its luminance, so
+  neither a near-white nor a near-black strip swallows them.
+- The colour follows the **device's** dark-mode setting, and the page is expected
+  to follow it too — that is the pair the two keys are for. Switching the system
+  theme re-picks the colour. A site with one fixed palette, which looks the same
+  either way, wants the same value in both keys.
+- The values worth putting here are the page's **own** edge colours, read off the
+  site rather than guessed: the `gasoline` variant carries `#F4F2ED` and
+  `#0D0E11`, the top pixel of its light and dark rendering.
+- A translucent `#AARRGGBB` colour blends with the window background underneath,
+  and is judged for icon contrast as it will actually look.
+- Both default to `#FFFFFF`, the window background — which is exactly what a
+  visible bar showed through before it could be coloured.
 
 ## External links
 
@@ -347,15 +425,18 @@ app-variants.yaml        Which apps to build: name, symbol, kiosk config, behavi
 app-icons/               Hand-drawn launcher symbols referenced by `icon.vector`
 buildSrc/src/main/kotlin/
   AppVariants.kt         Parses & validates app-variants.yaml
+  ScreenModes.kt         The screen-mode names the build accepts
   LauncherGlyphs.kt      The built-in launcher symbols
   GenerateLauncherIconsTask.kt  Writes each variant's icon resources
 app/src/main/java/de/davidgrieser/container/
   MainActivity.kt        UI: WebView, pull-to-refresh, FAB, menu sheet, admin & PIN dialogs
+  ScreenMode.kt          Which system bars each screen mode keeps on screen
+  SystemBarColors.kt     What those bars are painted in, light mode and dark
   KioskWebViewClient.kt  Enforces the domain lock (& hand-off to the browser) and the TLS-error policy
   InsecureSsl.kt         Opt-in trust-all TLS for the app's own HTTP calls
   DomainRules.kt         Host / domain matching rules
   ConfigRepository.kt    Fetches & parses the remote JSON (with caching)
-  Prefs.kt               Persisted state (PIN hash, config URL, cache, selection)
+  Prefs.kt               Persisted state (PIN hash, config URL, screen mode, cache, selection)
   PinManager.kt          Salted, iterated PIN hashing & verification
   IconLoader.kt          Tiny dependency-free menu-icon loader
 ```
