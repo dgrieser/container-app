@@ -106,9 +106,10 @@ variants:
   # first variant that is not edge-to-edge: `screenMode: statusBar` keeps the
   # clock, the battery and the notifications above the page, which suits a build
   # that is read like a website rather than staring at a wall as a dashboard. The
-  # strip they sit in is painted in the site's own dark blue-grey — the same
-  # colour as the icon background — in both light and dark mode, because the page
-  # below it does not change with the system theme either.
+  # strip they sit in is painted in the colour the page itself has at its top
+  # edge, sampled from the site in each theme — the near-white of its light mode,
+  # the near-black of its dark one — so the bar reads as part of the page and its
+  # icons flip from dark to light along with it.
   - id: gasoline
     name: Gasoline
     defaultKioskPath: https://gasoline.david-grieser.de/
@@ -117,8 +118,8 @@ variants:
     allowExternalNavigation: true
     screenMode: statusBar
     barColor:
-      light: "#22303F"
-      dark: "#22303F"
+      light: "#F4F2ED"
+      dark: "#0D0E11"
     versionNameSuffix: "-gasoline"
     icon:
       vector: app-icons/gasoline.xml

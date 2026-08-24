@@ -253,10 +253,13 @@ declares both:
 - The **icons in the bar** — clock, battery, nav glyphs — are darkened or
   lightened to suit the colour behind them, measured by its luminance, so
   neither a near-white nor a near-black strip swallows them.
-- The colour follows the **device's** dark-mode setting, not the page's. Switching
-  the system theme re-picks it. A page that ignores the system theme (a site with
-  one fixed palette) is best served by giving both keys the same value, as the
-  `gasoline` variant does.
+- The colour follows the **device's** dark-mode setting, and the page is expected
+  to follow it too — that is the pair the two keys are for. Switching the system
+  theme re-picks the colour. A site with one fixed palette, which looks the same
+  either way, wants the same value in both keys.
+- The values worth putting here are the page's **own** edge colours, read off the
+  site rather than guessed: the `gasoline` variant carries `#F4F2ED` and
+  `#0D0E11`, the top pixel of its light and dark rendering.
 - A translucent `#AARRGGBB` colour blends with the window background underneath,
   and is judged for icon contrast as it will actually look.
 - Both default to `#FFFFFF`, the window background — which is exactly what a
