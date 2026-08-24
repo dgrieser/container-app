@@ -79,6 +79,7 @@ class AppVariantsTest {
         assertEquals("#FFFFFF", container.barColor.dark)
         assertFalse(container.allowUnverifiedSsl)
         assertFalse(container.allowExternalNavigation)
+        assertFalse(container.allowLocation)
         assertEquals("", container.defaultKioskPath)
         assertEquals(LauncherGlyphs.DEFAULT, container.icon.glyph)
 
@@ -208,6 +209,25 @@ class AppVariantsTest {
     }
 
     @Test
+    fun `asking for the device position stays opt-in per variant`() {
+        val variants = load(
+            """
+            variants:
+              - id: blind
+                name: Blind
+                defaultKioskPath: https://blind.example.com/
+              - id: locating
+                name: Locating
+                defaultKioskPath: https://locating.example.com/
+                allowLocation: true
+            """
+        )
+
+        assertFalse("location must be off unless asked for", variants[0].allowLocation)
+        assertTrue(variants[1].allowLocation)
+    }
+
+    @Test
     fun `misconfigurations fail the build`() {
         assertRejected("unknown key", """
             variants:
@@ -264,6 +284,13 @@ class AppVariantsTest {
                 name: A
                 configUrl: https://example.com/k.json
                 screenMode: cinema
+        """)
+        assertRejected("non-boolean allowLocation", """
+            variants:
+              - id: a
+                name: A
+                configUrl: https://example.com/k.json
+                allowLocation: when asked
         """)
         assertRejected("malformed bar colour", """
             variants:

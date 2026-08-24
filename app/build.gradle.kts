@@ -82,6 +82,10 @@ android {
                     "ALLOW_EXTERNAL_NAVIGATION",
                     variant.allowExternalNavigation.toString()
                 )
+                // Whether the page may ask for the device's position. Fixed per
+                // build, because the location permissions are only in the
+                // manifest of a variant that asked for them (see below).
+                buildConfigField("boolean", "ALLOW_LOCATION", variant.allowLocation.toString())
             }
         }
     }
@@ -136,9 +140,11 @@ android {
 }
 
 /**
- * Generates each variant's launcher icon (background colour + symbol) into its
- * own resource directory, so the APKs are told apart on the home screen without
- * any icon assets being checked in.
+ * Generates the per-variant pieces of each build: the launcher icon (background
+ * colour + symbol) into its own resource directory, so the APKs are told apart
+ * on the home screen without any icon assets being checked in, and the manifest
+ * entries only some variants get, so an APK declares no permission it cannot
+ * use.
  */
 androidComponents {
     val variantsById = appVariants.associateBy { it.id }
@@ -160,6 +166,27 @@ androidComponents {
         variant.sources.res?.addGeneratedSourceDirectory(
             generateIcons,
             GenerateLauncherIconsTask::outputDir
+        )
+
+        val generateManifest = tasks.register<GenerateVariantManifestTask>(
+            "generate${variant.name.replaceFirstChar(Char::uppercaseChar)}VariantManifest"
+        ) {
+            description = "Writes the manifest additions for the ${spec.name} variant."
+            // Location is the only such entry so far: only a variant that opted
+            // in declares the permissions, so the others cannot even ask.
+            val location = spec.allowLocation
+            permissions.set(
+                if (location) GenerateVariantManifestTask.LOCATION_PERMISSIONS else emptyList()
+            )
+            optionalFeatures.set(
+                if (location) GenerateVariantManifestTask.LOCATION_FEATURES else emptyList()
+            )
+            // manifestFile is wired below: the Android build picks where a
+            // generated manifest lives and sets the property itself.
+        }
+        variant.sources.manifests.addGeneratedManifestFile(
+            generateManifest,
+            GenerateVariantManifestTask::manifestFile
         )
     }
 }

@@ -33,6 +33,11 @@ and the release pipeline builds one installable APK per entry. See
   link. The off-domain page still never loads inside the container: it opens
   outside it, and the app stays on its own page. See
   [External links](#external-links).
+- **Location, if the variant asks for it (opt-in).** A variant with
+  `allowLocation: true` lets its page use `navigator.geolocation` — the device's
+  GPS — after Android's own permission prompt. Every other build carries no
+  location permission at all, so its pages are refused outright. Only a page
+  inside the anchored domain can ask. See [Location](#location).
 - **Hamburger menu.** A small, translucent menu button sits at the
   **bottom-right**. It is deliberately unobtrusive: 36 dp, neutral grey, and it
   fades down to 30 % opacity a couple of seconds after the last touch, so it
@@ -106,6 +111,7 @@ variants:
       dark: "#101418"
     allowUnverifiedSsl: true # server has a self-signed certificate
     allowExternalNavigation: true  # off-domain links open in the browser
+    allowLocation: true      # the page may use GPS, after Android's prompt
     versionNameSuffix: "-portal"
     icon:
       glyph: home
@@ -128,6 +134,7 @@ variants:
 | `barColor.dark` | no (`#FFFFFF`) | The same for dark mode. |
 | `allowUnverifiedSsl` | no (`false`) | `true` = the *Allow unverified certificates* switch starts on, for kiosks against a self-signed or internal-CA server. Still togglable per device in the admin menu. |
 | `allowExternalNavigation` | no (`false`) | `false` = an off-domain link is refused. `true` = it is opened by Android's default handler (browser or a matching app) instead, outside the container. Fixed per build. |
+| `allowLocation` | no (`false`) | `true` = the page may ask for the device's position, and the build declares the location permissions. `false` = no location permission in the APK at all and `navigator.geolocation` fails. Fixed per build. See [Location](#location). |
 | `icon.glyph` | no (`container`) | Built-in symbol: `container`, `equalizer`, `apps`, `dashboard`, `list`, `menu`, `home`, `monitor`, `chat`, `info`, `lock`, `bolt`, `star`, `circle`, `square`, `triangle`, `diamond`. |
 | `icon.vector` | no | Path (from the repo root) to your own 108×108 vector drawable, used instead of a glyph. |
 | `icon.background` | no (`#1F6FEB`) | Icon background colour, `#RRGGBB` or `#AARRGGBB`. |
@@ -300,6 +307,45 @@ Unlike *Allow unverified certificates*, this is not an admin switch: it is fixed
 when the APK is built. Whether a kiosk may send its users off to the browser is a
 property of that kiosk, not something to be flipped on a device.
 
+## Location
+
+A page that wants to know where the device is — a map, a "what's nearest"
+search — needs both halves: the WebView has to allow the request, and Android
+has to have granted the app the permission. A variant declares whether it is in
+that business at all:
+
+```yaml
+  - id: gasoline
+    name: Gasoline
+    defaultKioskPath: https://gasoline.david-grieser.de/
+    allowLocation: true
+```
+
+Without it (the default) the setting is not a mere runtime check: **the APK
+carries no location permission**, so there is nothing to grant, nothing shows
+under the app's permissions on the device, and `navigator.geolocation` fails
+immediately — an answer the page can handle, rather than a request that hangs.
+The permissions and the (optional) GPS feature are generated into that variant's
+manifest only, next to its launcher icon; see
+[`buildSrc/src/main/kotlin`](buildSrc/src/main/kotlin).
+
+With it, the first request from the page brings up **Android's own permission
+prompt**, asking for the precise and approximate permissions together so the
+user can pick either — the coarse one still yields a position. Three things are
+checked, in order: the build allows location, the asking origin is inside the
+domain lock, and the permission is held.
+
+- **The domain lock applies here too.** An embedded third-party frame cannot
+  borrow the permission the anchored site was granted; such a request is refused
+  and the app says which host asked. This mirrors how the TLS bypass is limited.
+- **Nothing is remembered by the WebView.** The answer is given afresh each time,
+  so revoking the permission in Android's settings takes effect immediately.
+  There is no in-app switch to undo a grant, because Android already has one —
+  *Settings → Apps → this app → Permissions → Location* — and that is the switch
+  the system itself honours.
+- **A denied prompt is explained once per page load**, then the page is left to
+  its own error handling.
+
 ## Unverified certificates
 
 Admin → **Allow unverified certificates** (a switch in the admin dialog,
@@ -428,6 +474,7 @@ buildSrc/src/main/kotlin/
   ScreenModes.kt         The screen-mode names the build accepts
   LauncherGlyphs.kt      The built-in launcher symbols
   GenerateLauncherIconsTask.kt  Writes each variant's icon resources
+  GenerateVariantManifestTask.kt  Writes the manifest entries only some variants get
 app/src/main/java/de/davidgrieser/container/
   MainActivity.kt        UI: WebView, pull-to-refresh, FAB, menu sheet, admin & PIN dialogs
   ScreenMode.kt          Which system bars each screen mode keeps on screen

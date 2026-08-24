@@ -59,6 +59,14 @@
 #                      opens in the browser (or whichever app claims it) while
 #                      this app stays on its own page. Either way the off-domain
 #                      page never loads inside the container.
+#   allowLocation      optional (false). true = the page may ask for the device's
+#                      position, and the build declares the location permissions
+#                      (fine and coarse, plus GPS as an optional feature) that
+#                      makes possible. false = the APK carries no location
+#                      permission at all and `navigator.geolocation` fails.
+#                      Fixed per build; a granted permission is revoked, as for
+#                      any app, in Android's own settings. A page inside the
+#                      anchored domain is the only one that can ask.
 #   icon.glyph         optional (container). One of: container, equalizer, apps,
 #                      dashboard, list, menu, home, monitor, chat, info, lock,
 #                      bolt, star, circle, square, triangle, diamond.
@@ -109,13 +117,17 @@ variants:
   # strip they sit in is painted in the colour the page itself has at its top
   # edge, sampled from the site in each theme — the near-white of its light mode,
   # the near-black of its dark one — so the bar reads as part of the page and its
-  # icons flip from dark to light along with it.
+  # icons flip from dark to light along with it. Its page also wants to know
+  # where the device is, to answer "cheapest right now" for somewhere in
+  # particular, so it is built with `allowLocation: true` — the only build whose
+  # APK declares a location permission at all.
   - id: gasoline
     name: Gasoline
     defaultKioskPath: https://gasoline.david-grieser.de/
     requirePin: false
     showMenu: false
     allowExternalNavigation: true
+    allowLocation: true
     screenMode: statusBar
     barColor:
       light: "#F4F2ED"
