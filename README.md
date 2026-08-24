@@ -43,7 +43,9 @@ and the release pipeline builds one installable APK per entry. See
   setting, not a given: full screen (the default), full screen with the status
   bar, full screen with the navigation bar, or both bars in view. A variant
   declares its starting point with `screenMode`, and the admin menu changes it
-  per device. See [Screen modes](#screen-modes).
+  per device. A bar that stays is painted in the variant's own `barColor` — one
+  for light mode, one for dark — so the strip reads as part of the page rather
+  than a white band above it. See [Screen modes](#screen-modes).
 - **Pull to refresh.** Sliding down with a finger from the top of the page
   reloads it, the way browser apps do. The gesture only fires when the page is
   already scrolled to the top, so it never interferes with scrolling. In
@@ -99,6 +101,9 @@ variants:
     requirePin: false        # no PIN at all
     showMenu: false          # single page, no hamburger button
     screenMode: statusBar    # keep the clock and battery above the page
+    barColor:                # …in a strip that matches the page, per system theme
+      light: "#FAFAFA"
+      dark: "#101418"
     allowUnverifiedSsl: true # server has a self-signed certificate
     allowExternalNavigation: true  # off-domain links open in the browser
     versionNameSuffix: "-portal"
@@ -119,6 +124,8 @@ variants:
 | `requirePin` | no (`true`) | `false` = no PIN setup on first run and the admin menu opens without one. |
 | `showMenu` | no (`true`) | `false` = no hamburger button; the app shows a single page and cannot be switched. |
 | `screenMode` | no (`fullscreen`) | Which system bars stay over the page: `fullscreen` (neither), `statusBar` (top bar only), `navigationBar` (bottom bar only), `systemBars` (both). Only the starting point — changeable per device in the admin menu. See [Screen modes](#screen-modes). |
+| `barColor.light` | no (`#FFFFFF`) | Colour of the bars `screenMode` keeps while the device is in light mode, `#RRGGBB` or `#AARRGGBB`. Fixed per build. |
+| `barColor.dark` | no (`#FFFFFF`) | The same for dark mode. |
 | `allowUnverifiedSsl` | no (`false`) | `true` = the *Allow unverified certificates* switch starts on, for kiosks against a self-signed or internal-CA server. Still togglable per device in the admin menu. |
 | `allowExternalNavigation` | no (`false`) | `false` = an off-domain link is refused. `true` = it is opened by Android's default handler (browser or a matching app) instead, outside the container. Fixed per build. |
 | `icon.glyph` | no (`container`) | Built-in symbol: `container`, `equalizer`, `apps`, `dashboard`, `list`, `menu`, `home`, `monitor`, `chat`, `info`, `lock`, `bolt`, `star`, `circle`, `square`, `triangle`, `diamond`. |
@@ -224,6 +231,36 @@ Two details are worth knowing:
   bar and above the navigation bar instead of hiding underneath them, and the
   padding follows the bars when the device is rotated. Full-screen mode keeps
   drawing into the display cutout, as before.
+
+### What colour the bars are
+
+A strip only disappears into the page if it is the colour the page has at that
+edge, and that colour is usually not the same by day and by night. So a variant
+declares both:
+
+```yaml
+  - id: portal
+    name: Portal
+    defaultKioskPath: https://portal.david-grieser.de/
+    screenMode: systemBars
+    barColor:
+      light: "#FAFAFA"     # what the page shows at its edges in light mode
+      dark: "#101418"      # …and in dark mode
+```
+
+- Only a bar the mode **keeps** is painted. A hidden one has nothing to paint,
+  and a transiently swiped-in bar keeps the system's own backdrop over the page.
+- The **icons in the bar** — clock, battery, nav glyphs — are darkened or
+  lightened to suit the colour behind them, measured by its luminance, so
+  neither a near-white nor a near-black strip swallows them.
+- The colour follows the **device's** dark-mode setting, not the page's. Switching
+  the system theme re-picks it. A page that ignores the system theme (a site with
+  one fixed palette) is best served by giving both keys the same value, as the
+  `gasoline` variant does.
+- A translucent `#AARRGGBB` colour blends with the window background underneath,
+  and is judged for icon contrast as it will actually look.
+- Both default to `#FFFFFF`, the window background — which is exactly what a
+  visible bar showed through before it could be coloured.
 
 ## External links
 
@@ -391,6 +428,7 @@ buildSrc/src/main/kotlin/
 app/src/main/java/de/davidgrieser/container/
   MainActivity.kt        UI: WebView, pull-to-refresh, FAB, menu sheet, admin & PIN dialogs
   ScreenMode.kt          Which system bars each screen mode keeps on screen
+  SystemBarColors.kt     What those bars are painted in, light mode and dark
   KioskWebViewClient.kt  Enforces the domain lock (& hand-off to the browser) and the TLS-error policy
   InsecureSsl.kt         Opt-in trust-all TLS for the app's own HTTP calls
   DomainRules.kt         Host / domain matching rules

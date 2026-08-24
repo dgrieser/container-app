@@ -3,6 +3,7 @@ package de.davidgrieser.container
 import android.annotation.SuppressLint
 import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
@@ -629,8 +630,8 @@ class MainActivity : AppCompatActivity() {
 
     /**
      * Puts the window into the configured [ScreenMode]: the bars that mode wants
-     * are shown, every other one is hidden, and the layout is padded so a visible
-     * bar sits next to the page instead of over it.
+     * are shown in the variant's colour, every other one is hidden, and the
+     * layout is padded so a visible bar sits next to the page instead of over it.
      *
      * A hidden bar can still be swiped in for a moment. That does not change any
      * inset, so the page never jumps when the user peeks at the clock.
@@ -643,12 +644,19 @@ class MainActivity : AppCompatActivity() {
             WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         if (mode.hiddenBars != 0) controller.hide(mode.hiddenBars)
         if (mode.visibleBars != 0) controller.show(mode.visibleBars)
-        // A bar this mode keeps on screen sits over @color/background, which is
-        // light, so its icons have to be dark to be readable. Bars that are only
-        // swiped in transiently keep the theme's light icons: the system draws
-        // them over a scrim of its own, on top of the page.
-        controller.isAppearanceLightStatusBars = mode.showsStatusBar
-        controller.isAppearanceLightNavigationBars = mode.showsNavigationBar
+
+        // The window decor paints these behind the bars. Only a bar this mode
+        // keeps gets the variant's colour: a hidden one has nothing to paint, and
+        // one swiped in transiently is drawn by the system over the page, with a
+        // backdrop of its own that should stay untouched.
+        val barColor = SystemBarColors.current(this)
+        window.statusBarColor = if (mode.showsStatusBar) barColor else Color.TRANSPARENT
+        window.navigationBarColor = if (mode.showsNavigationBar) barColor else Color.TRANSPARENT
+        // Dark icons over a light bar, light ones over a dark bar — and light
+        // ones over a transient bar, whose own backdrop is dark.
+        val darkIcons = SystemBarColors.needsDarkIcons(this, barColor)
+        controller.isAppearanceLightStatusBars = mode.showsStatusBar && darkIcons
+        controller.isAppearanceLightNavigationBars = mode.showsNavigationBar && darkIcons
         padForVisibleBars(mode)
     }
 

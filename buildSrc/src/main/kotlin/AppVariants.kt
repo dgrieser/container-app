@@ -14,6 +14,16 @@ data class LauncherIcon(
 )
 
 /**
+ * What the system bars a variant keeps on screen are painted in, per system
+ * theme. Both default to the window background, which is what those bars showed
+ * through before they could be coloured.
+ */
+data class BarColors(
+    val light: String,
+    val dark: String
+)
+
+/**
  * One installable flavour of the container app, as declared in
  * `app-variants.yaml`. Every variant becomes its own product flavour, its own
  * `applicationId` and therefore its own APK that installs alongside the others.
@@ -42,6 +52,8 @@ data class AppVariant(
      * Only the starting point — the admin menu can change it per device.
      */
     val screenMode: String,
+    /** Colour of the bars [screenMode] keeps, per system theme. */
+    val barColor: BarColors,
     /** Initial state of the admin's "allow unverified certificates" switch. */
     val allowUnverifiedSsl: Boolean,
     /**
@@ -70,13 +82,17 @@ object AppVariants {
     private val TOP_LEVEL_KEYS = setOf("applicationId", "variants")
     private val VARIANT_KEYS = setOf(
         "id", "name", "applicationId", "versionNameSuffix", "configUrl",
-        "defaultKioskPath", "requirePin", "showMenu", "screenMode",
+        "defaultKioskPath", "requirePin", "showMenu", "screenMode", "barColor",
         "allowUnverifiedSsl", "allowExternalNavigation", "default", "icon"
     )
     private val ICON_KEYS = setOf("glyph", "vector", "background", "tint")
+    private val BAR_COLOR_KEYS = setOf("light", "dark")
 
     private const val DEFAULT_BACKGROUND = "#1F6FEB"
     private const val DEFAULT_TINT = "#FFFFFF"
+
+    /** The window background (`@color/background`), i.e. what the bars showed before. */
+    private const val DEFAULT_BAR_COLOR = "#FFFFFF"
 
     fun load(file: File, fallbackApplicationId: String): List<AppVariant> {
         if (!file.isFile) {
@@ -174,11 +190,27 @@ object AppVariants {
             requirePin = map.boolean("requirePin") ?: true,
             showMenu = map.boolean("showMenu") ?: true,
             screenMode = screenMode,
+            barColor = parseBarColors(map["barColor"], "$where barColor", fileName),
             allowUnverifiedSsl = map.boolean("allowUnverifiedSsl") ?: false,
             allowExternalNavigation = map.boolean("allowExternalNavigation") ?: false,
             isDefault = isDefault,
             icon = parseIcon(map["icon"], "$where icon", fileName)
         )
+    }
+
+    private fun parseBarColors(raw: Any?, where: String, fileName: String): BarColors {
+        if (raw == null) return BarColors(DEFAULT_BAR_COLOR, DEFAULT_BAR_COLOR)
+        val map = raw.asMap(fileName, where)
+        map.checkKeys(fileName, where, BAR_COLOR_KEYS)
+
+        val light = map.string("light") ?: DEFAULT_BAR_COLOR
+        val dark = map.string("dark") ?: DEFAULT_BAR_COLOR
+        listOf("light" to light, "dark" to dark).forEach { (key, value) ->
+            if (!COLOR_PATTERN.matches(value)) {
+                error("$where: `$key` must be #RRGGBB or #AARRGGBB, was `$value`.")
+            }
+        }
+        return BarColors(light = light, dark = dark)
     }
 
     private fun parseIcon(raw: Any?, where: String, fileName: String): LauncherIcon {

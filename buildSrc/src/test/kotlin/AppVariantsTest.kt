@@ -75,6 +75,8 @@ class AppVariantsTest {
         assertTrue(container.requirePin)
         assertTrue(container.showMenu)
         assertEquals(ScreenModes.DEFAULT, container.screenMode)
+        assertEquals("#FFFFFF", container.barColor.light)
+        assertEquals("#FFFFFF", container.barColor.dark)
         assertFalse(container.allowUnverifiedSsl)
         assertFalse(container.allowExternalNavigation)
         assertEquals("", container.defaultKioskPath)
@@ -140,6 +142,43 @@ class AppVariantsTest {
 
         assertEquals("fullscreen", variants[0].screenMode)
         assertEquals("statusBar", variants[1].screenMode)
+    }
+
+    @Test
+    fun `a kept bar can be painted per system theme`() {
+        val variant = load(
+            """
+            variants:
+              - id: topbar
+                name: Top bar
+                defaultKioskPath: https://topbar.example.com/
+                screenMode: statusBar
+                barColor:
+                  light: "#FAFAFA"
+                  dark: "#101418"
+            """
+        ).single()
+
+        assertEquals("#FAFAFA", variant.barColor.light)
+        assertEquals("#101418", variant.barColor.dark)
+    }
+
+    @Test
+    fun `one bar colour may be given without the other`() {
+        val variant = load(
+            """
+            variants:
+              - id: topbar
+                name: Top bar
+                defaultKioskPath: https://topbar.example.com/
+                screenMode: systemBars
+                barColor:
+                  dark: "#000000"
+            """
+        ).single()
+
+        assertEquals("#FFFFFF", variant.barColor.light)
+        assertEquals("#000000", variant.barColor.dark)
     }
 
     /**
@@ -225,6 +264,22 @@ class AppVariantsTest {
                 name: A
                 configUrl: https://example.com/k.json
                 screenMode: cinema
+        """)
+        assertRejected("malformed bar colour", """
+            variants:
+              - id: a
+                name: A
+                configUrl: https://example.com/k.json
+                barColor:
+                  light: white
+        """)
+        assertRejected("unknown bar colour key", """
+            variants:
+              - id: a
+                name: A
+                configUrl: https://example.com/k.json
+                barColor:
+                  night: "#000000"
         """)
         assertRejected("unknown glyph", """
             variants:

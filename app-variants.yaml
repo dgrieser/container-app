@@ -42,6 +42,12 @@
 #                      A hidden bar can still be swiped in for a moment. This is
 #                      only the starting point: the admin menu can change it per
 #                      device.
+#   barColor.light     optional (#FFFFFF). Colour of the bars `screenMode` keeps,
+#   barColor.dark      while the device is in light / in dark mode. #RRGGBB or
+#                      #AARRGGBB. Set them to whatever the page shows at that
+#                      edge, so the strip reads as part of it; the icons in the
+#                      bar are darkened or lightened to suit. Irrelevant for a
+#                      fullscreen variant, which has no bar to paint.
 #   allowUnverifiedSsl optional (false). true = ship with "allow unverified
 #                      certificates" already on, for kiosks against a server
 #                      with a self-signed certificate or an internal CA. The
@@ -99,7 +105,10 @@ variants:
   # `tint` is given here: that drawable carries its own colours. It is also the
   # first variant that is not edge-to-edge: `screenMode: statusBar` keeps the
   # clock, the battery and the notifications above the page, which suits a build
-  # that is read like a website rather than staring at a wall as a dashboard.
+  # that is read like a website rather than staring at a wall as a dashboard. The
+  # strip they sit in is painted in the site's own dark blue-grey — the same
+  # colour as the icon background — in both light and dark mode, because the page
+  # below it does not change with the system theme either.
   - id: gasoline
     name: Gasoline
     defaultKioskPath: https://gasoline.david-grieser.de/
@@ -107,6 +116,9 @@ variants:
     showMenu: false
     allowExternalNavigation: true
     screenMode: statusBar
+    barColor:
+      light: "#22303F"
+      dark: "#22303F"
     versionNameSuffix: "-gasoline"
     icon:
       vector: app-icons/gasoline.xml

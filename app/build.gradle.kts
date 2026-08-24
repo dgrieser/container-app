@@ -57,6 +57,18 @@ android {
                 // Which system bars this build starts out showing; the admin menu
                 // can change it per device.
                 buildConfigField("String", "SCREEN_MODE", javaStringLiteral(variant.screenMode))
+                // What the bars a screen mode keeps are painted in, per system
+                // theme. Fixed per build; the activity picks the one in force.
+                buildConfigField(
+                    "String",
+                    "BAR_COLOR_LIGHT",
+                    javaStringLiteral(variant.barColor.light)
+                )
+                buildConfigField(
+                    "String",
+                    "BAR_COLOR_DARK",
+                    javaStringLiteral(variant.barColor.dark)
+                )
                 // Initial value of the admin switch; still togglable at runtime.
                 buildConfigField(
                     "boolean",
