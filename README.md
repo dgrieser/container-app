@@ -430,6 +430,21 @@ for that tag. So a tag on the file above produces
 other. CI does not use `keystore.properties`; it signs from the repository
 secrets below instead.
 
+**The tag is the version.** `versionName` is the tag with any leading `v`
+removed (plus the variant's own `versionNameSuffix`, so `v1.2.3` gives
+`1.2.3-gasoline`), and `versionCode` is derived from it as
+`major * 10000 + minor * 100 + patch` — `v0.0.9` → 9, `v0.1.0` → 100, `v1.2.3`
+→ 10203. That ordering is what lets a device see a new release as an upgrade of
+the last; a tag whose minor or patch would reach 100 and break the ordering
+fails the build instead of shipping. Releases up to and including `v0.0.8` all
+carried `versionCode 1`, so any tag from here on supersedes them.
+
+A build outside a tagged checkout asks git instead (`./gradlew assembleContainerDebug`
+on this working copy produces something like `0.0.8-12-gabc1234-dirty`), so a
+locally built APK says which commit it came from rather than claiming to be a
+release. Pass `-PappVersion=v1.2.3` (or set `APP_VERSION`) to override, which is
+exactly what the workflow does with the pushed tag.
+
 All variants are signed with the same key, which is what you want: the
 `applicationId` is what keeps them apart, and a shared key means updates keep
 working for each of them.
@@ -471,6 +486,7 @@ app-variants.yaml        Which apps to build: name, symbol, kiosk config, behavi
 app-icons/               Hand-drawn launcher symbols referenced by `icon.vector`
 buildSrc/src/main/kotlin/
   AppVariants.kt         Parses & validates app-variants.yaml
+  AppVersion.kt          Derives versionName / versionCode from the git tag
   ScreenModes.kt         The screen-mode names the build accepts
   LauncherGlyphs.kt      The built-in launcher symbols
   GenerateLauncherIconsTask.kt  Writes each variant's icon resources

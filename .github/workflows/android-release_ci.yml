@@ -60,7 +60,11 @@ jobs:
         run: chmod +x gradlew
 
       - name: Build with Gradle
-        run: ./gradlew clean assemble${{ matrix.variant.gradleName }}Release
+        # The pushed tag is the version: it becomes versionName, and versionCode
+        # is derived from it, so each release supersedes the last on a device.
+        run: |
+          ./gradlew clean assemble${{ matrix.variant.gradleName }}Release \
+            -PappVersion="${{ github.ref_name }}"
 
       - name: Sign APK
         uses: ilharp/sign-android-release@v2.0.0

@@ -17,6 +17,18 @@ val variantDimension = "app"
  */
 val appVariants = AppVariants.load(rootProject.file("app-variants.yaml"), baseApplicationId)
 
+/**
+ * What this build calls itself, taken from the git tag: the release workflow
+ * passes the tag it was triggered by (`-PappVersion=v1.2.3`), and a build from a
+ * working copy asks git itself. Every release used to be version 1.0 / code 1,
+ * so no device could tell two of them apart.
+ */
+val appVersion = AppVersion.resolve(
+    declared = providers.gradleProperty("appVersion").orNull
+        ?: providers.environmentVariable("APP_VERSION").orNull,
+    repositoryRoot = rootProject.rootDir
+)
+
 android {
     namespace = baseApplicationId
     compileSdk = 34
@@ -24,8 +36,8 @@ android {
     defaultConfig {
         minSdk = 24
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = appVersion.code
+        versionName = appVersion.name
     }
 
     flavorDimensions += variantDimension
