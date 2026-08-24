@@ -23,6 +23,9 @@ import yaml
 
 from variants import Variant
 
+#: The unit-test target declared in the hand-written half of the spec.
+TEST_TARGET = "ContainerKitTests"
+
 HEADER = (
     "# Generated from app-variants.yaml by ios/tools/generate.py — do not edit.\n"
     "#\n"
@@ -47,9 +50,10 @@ def spec(variants: list[Variant]) -> dict:
         variant.id: {
             "build": {"targets": {variant.id: "all"}},
             "run": {"config": "Debug"},
-            # No `test:` block: the tests live in the ContainerKit package and run
-            # as `swift test`, so naming them here would reference an Xcode target
-            # that does not exist.
+            # Every scheme runs the same tests: they cover ContainerKit, which all
+            # the variants share. The target is declared in the hand-written
+            # ../project.yml, so this is the one name here that is not generated.
+            "test": {"config": "Debug", "targets": [TEST_TARGET]},
             "profile": {"config": "Release"},
             "analyze": {"config": "Debug"},
             "archive": {"config": "Release"},

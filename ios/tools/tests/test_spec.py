@@ -50,6 +50,21 @@ class SpecTest(unittest.TestCase):
                 self.assertEqual("Debug", scheme["run"]["config"])
                 self.assertEqual({name: "all"}, scheme["build"]["targets"])
 
+    def test_every_scheme_runs_the_shared_tests(self) -> None:
+        # The tests cover ContainerKit, which every variant is built out of, so
+        # picking any scheme in Xcode and hitting test does the right thing.
+        for name, scheme in self.spec["schemes"].items():
+            with self.subTest(scheme=name):
+                self.assertEqual(
+                    [xcodegen_spec.TEST_TARGET], scheme["test"]["targets"]
+                )
+
+    def test_the_test_target_is_declared_in_the_hand_written_half(self) -> None:
+        # The generated half must not invent a target: a scheme naming one that
+        # does not exist is a project Xcode refuses to open.
+        project = yaml.safe_load((paths.IOS / "project.yml").read_text(encoding="utf-8"))
+        self.assertIn(xcodegen_spec.TEST_TARGET, project.get("targets", {}))
+
     def test_the_dump_is_valid_yaml_and_carries_the_do_not_edit_header(self) -> None:
         text = xcodegen_spec.dumps(self.declared)
         self.assertTrue(text.startswith("# Generated from app-variants.yaml"))

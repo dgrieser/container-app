@@ -7,7 +7,9 @@
 // Warnings the app is expected to be clean of. Not -Werror: a compiler upgrade
 // introducing a new warning should not stop a release from building.
 SWIFT_VERSION = 5.9
-SWIFT_STRICT_CONCURRENCY = complete
+// UIKit at this deployment target is not annotated for strict
+// concurrency, so `complete` reports the SDK rather than this code.
+SWIFT_STRICT_CONCURRENCY = minimal
 CLANG_ENABLE_MODULES = YES
 CLANG_ENABLE_OBJC_ARC = YES
 GCC_NO_COMMON_BLOCKS = YES

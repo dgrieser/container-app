@@ -46,6 +46,25 @@ configFiles:
   Debug: Config/Base.xcconfig
   Release: Config/Base.xcconfig
 
+targets:
+  # The tests, as an Xcode target rather than a SwiftPM one: ContainerKit is a
+  # UIKit and WebKit package, so `swift test` cannot build it on any host. These
+  # are logic tests with no host application, which is all the pure core needs —
+  # and it is why the keychain is not covered here (a keychain item needs an app
+  # bundle with entitlements to live in).
+  ContainerKitTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: Tests/ContainerKitTests
+    dependencies:
+      - package: ContainerKit
+        product: ContainerKit
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: de.davidgrieser.container.tests
+        GENERATE_INFOPLIST_FILE: YES
+
 targetTemplates:
   # Every variant is this template plus three attributes. Nothing variant-specific
   # is written here; the values come from Generated/variants.yml.

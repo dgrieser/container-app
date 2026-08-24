@@ -103,6 +103,10 @@ def info_plist(variant: Variant) -> dict:
         "ContainerVariantId": variant.id,
         "ContainerVersionName": "$(CONTAINER_VERSION_NAME)",
         "UILaunchScreen": {},
+        # Without this key UIKit takes the pre-scene path, never calls the scene
+        # delegate, and the app shows a black screen. One scene: a kiosk shows one
+        # page, and multiple windows would each need their own domain lock.
+        "UIApplicationSceneManifest": {"UIApplicationSupportsMultipleScenes": False},
         "UISupportedInterfaceOrientations": PHONE_ORIENTATIONS,
         "UISupportedInterfaceOrientations~ipad": PAD_ORIENTATIONS,
         # The view controller decides, because the screen mode is a per-device

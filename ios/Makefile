@@ -3,7 +3,7 @@
 #   make project    regenerate from app-variants.yaml and write Container.xcodeproj
 #   make generate   just the generated files (no Xcode needed)
 #   make icons      just the app icons (no Xcode needed)
-#   make test       the generator's tests, and the package's if Swift is present
+#   make test       the generator's tests, and ContainerKit's if Xcode is present
 #   make open       generate, then open the project
 #
 # APP_VERSION overrides the version, exactly as -PappVersion does on the Android
@@ -12,6 +12,7 @@
 PYTHON ?= python3
 PROJECT := Container.xcodeproj
 SCHEME ?= container
+SIMULATOR ?= platform=iOS Simulator,name=iPhone 15
 VERSION_ARG := $(if $(APP_VERSION),--app-version $(APP_VERSION),)
 
 .PHONY: all project generate icons test test-tools test-package open clean
@@ -41,12 +42,15 @@ test: test-tools test-package
 test-tools:
 	cd tools && $(PYTHON) -m unittest discover -s tests -t . -v
 
-# Skipped rather than failed where there is no Swift toolchain, so `make test` is
-# still useful on Linux.
+# ContainerKit is a UIKit and WebKit package, so its tests need a simulator
+# rather than `swift test`. Skipped rather than failed without Xcode, so
+# `make test` is still useful on Linux.
 test-package:
-	@command -v swift >/dev/null 2>&1 \
-	  && (cd ContainerKit && swift test) \
-	  || echo "swift not found, skipping the package tests"
+	@command -v xcodebuild >/dev/null 2>&1 || { \
+	  echo "xcodebuild not found, skipping the package tests"; exit 0; }; \
+	$(MAKE) project && \
+	xcodebuild test -project $(PROJECT) -scheme $(SCHEME) \
+	  -destination "$(SIMULATOR)"
 
 clean:
 	rm -rf Generated $(PROJECT) build .build DerivedData
