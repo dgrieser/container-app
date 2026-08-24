@@ -1,0 +1,4 @@
+# expect: configUrl is required without an absolute defaultKioskPath
+variants:
+  - id: a
+    name: A

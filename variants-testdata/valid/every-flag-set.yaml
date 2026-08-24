@@ -1,0 +1,18 @@
+# expect: all the behaviour switches at once
+variants:
+  - id: a
+    name: A
+    configUrl: https://example.com/kiosk.json
+    defaultKioskPath: /dashboard
+    versionNameSuffix: "-a"
+    requirePin: false
+    showMenu: false
+    screenMode: navigationBar
+    allowUnverifiedSsl: true
+    allowExternalNavigation: true
+    allowLocation: true
+    locationReason: A shows what is near you.
+    icon:
+      glyph: home
+      background: "#0E7C66"
+      tint: "#FFFFFF"

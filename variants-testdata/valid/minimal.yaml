@@ -1,0 +1,5 @@
+# expect: the least a variant can declare
+variants:
+  - id: a
+    name: A
+    configUrl: https://example.com/kiosk.json

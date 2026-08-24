@@ -1,0 +1,7 @@
+# expect: unknown key at the document root
+bundleIdPrefix: com.example
+
+variants:
+  - id: a
+    name: A
+    configUrl: https://example.com/kiosk.json

@@ -11,6 +11,10 @@ import javax.xml.parsers.DocumentBuilderFactory
  * Guards the parsing of `app-variants.yaml`. It runs as part of `buildSrc:build`,
  * i.e. on every Gradle invocation, so a broken variants file is reported before
  * an APK with the wrong name, icon or kiosk URL can be produced.
+ *
+ * What each rule rejects lives in `variants-testdata/` and is asserted by
+ * [VariantsCorpusTest], because the iOS generator has to reject exactly the same
+ * files; this class covers what the parser *produces*.
  */
 class AppVariantsTest {
 
@@ -19,8 +23,8 @@ class AppVariantsTest {
 
     @Test
     fun `the repository's variants file is valid`() {
-        val file = File(repoRoot(), "app-variants.yaml")
-        val variants = AppVariants.load(file, "de.davidgrieser.container")
+        val file = File(TestPaths.repoRoot, "app-variants.yaml")
+        val variants = AppVariants.load(file, "de.davidgrieser.container", TestPaths.glyphs())
 
         assertTrue("expected at least one variant", variants.isNotEmpty())
         assertEquals(1, variants.count { it.isDefault })
@@ -30,7 +34,7 @@ class AppVariantsTest {
                 variant.icon.glyph != null || variant.icon.vector != null
             )
             variant.icon.vector?.let {
-                val vector = File(repoRoot(), it)
+                val vector = File(TestPaths.repoRoot, it)
                 assertTrue("$it does not exist", vector.isFile)
                 // It is copied into the APK as the icon foreground unchanged, so
                 // a wrong viewport here would silently ship a misplaced icon.
@@ -46,7 +50,7 @@ class AppVariantsTest {
                 }
             }
             variant.icon.glyph?.let {
-                assertTrue("unknown glyph $it", LauncherGlyphs.pathData(it) != null)
+                assertTrue("unknown glyph $it", TestPaths.glyphs().pathData(it) != null)
             }
         }
     }
@@ -190,7 +194,7 @@ class AppVariantsTest {
     @Test
     fun `the screen modes match the app's ScreenMode enum`() {
         val source = File(
-            gradleRoot(),
+            TestPaths.gradleRoot,
             "app/src/main/java/de/davidgrieser/container/ScreenMode.kt"
         )
         assertTrue("${source.name} is missing", source.isFile)
@@ -227,139 +231,9 @@ class AppVariantsTest {
         assertTrue(variants[1].allowLocation)
     }
 
-    @Test
-    fun `misconfigurations fail the build`() {
-        assertRejected("unknown key", """
-            variants:
-              - id: a
-                name: A
-                configUrl: https://example.com/k.json
-                hamburger: false
-        """)
-        assertRejected("duplicate applicationId", """
-            variants:
-              - id: a
-                name: A
-                configUrl: https://example.com/k.json
-                applicationId: com.example.same
-              - id: b
-                name: B
-                configUrl: https://example.com/k.json
-                applicationId: com.example.same
-        """)
-        assertRejected("invalid id", """
-            variants:
-              - id: My-App
-                name: A
-                configUrl: https://example.com/k.json
-        """)
-        assertRejected("missing configUrl", """
-            variants:
-              - id: a
-                name: A
-        """)
-        assertRejected("relative defaultKioskPath without a configUrl", """
-            variants:
-              - id: a
-                name: A
-                defaultKioskPath: /dashboard
-        """)
-        assertRejected("non-boolean allowUnverifiedSsl", """
-            variants:
-              - id: a
-                name: A
-                configUrl: https://example.com/k.json
-                allowUnverifiedSsl: yes please
-        """)
-        assertRejected("non-boolean allowExternalNavigation", """
-            variants:
-              - id: a
-                name: A
-                configUrl: https://example.com/k.json
-                allowExternalNavigation: sometimes
-        """)
-        assertRejected("unknown screenMode", """
-            variants:
-              - id: a
-                name: A
-                configUrl: https://example.com/k.json
-                screenMode: cinema
-        """)
-        assertRejected("non-boolean allowLocation", """
-            variants:
-              - id: a
-                name: A
-                configUrl: https://example.com/k.json
-                allowLocation: when asked
-        """)
-        assertRejected("malformed bar colour", """
-            variants:
-              - id: a
-                name: A
-                configUrl: https://example.com/k.json
-                barColor:
-                  light: white
-        """)
-        assertRejected("unknown bar colour key", """
-            variants:
-              - id: a
-                name: A
-                configUrl: https://example.com/k.json
-                barColor:
-                  night: "#000000"
-        """)
-        assertRejected("unknown glyph", """
-            variants:
-              - id: a
-                name: A
-                configUrl: https://example.com/k.json
-                icon:
-                  glyph: unicorn
-        """)
-        assertRejected("malformed colour", """
-            variants:
-              - id: a
-                name: A
-                configUrl: https://example.com/k.json
-                icon:
-                  background: blue
-        """)
-        assertRejected("two default variants", """
-            variants:
-              - id: a
-                name: A
-                configUrl: https://example.com/k.json
-                default: true
-              - id: b
-                name: B
-                configUrl: https://example.com/k.json
-                default: true
-        """)
-        assertRejected("empty variants list", "variants: []")
-    }
-
     private fun load(yaml: String): List<AppVariant> {
         val file = temp.newFile("app-variants.yaml")
         file.writeText(yaml.trimIndent())
-        return AppVariants.load(file, "de.davidgrieser.container")
+        return AppVariants.load(file, "de.davidgrieser.container", TestPaths.glyphs())
     }
-
-    private fun assertRejected(what: String, yaml: String) {
-        val failed = runCatching { load(yaml) }.isFailure
-        assertTrue("$what should have been rejected", failed)
-    }
-
-    /**
-     * The root of this Gradle build (`android/`). buildSrc is its own build, so
-     * when the tests run from there it is one level up.
-     */
-    private fun gradleRoot(): File = File(System.getProperty("user.dir")).let {
-        if (it.name == "buildSrc") it.parentFile else it
-    }
-
-    /**
-     * The repository root, one level above [gradleRoot]. `app-variants.yaml` and
-     * `app-icons/` are shared with the iOS app and so live outside `android/`.
-     */
-    private fun repoRoot(): File = gradleRoot().parentFile
 }

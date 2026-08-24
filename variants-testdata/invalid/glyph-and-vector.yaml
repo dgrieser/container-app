@@ -1,0 +1,8 @@
+# expect: set either glyph or vector, not both
+variants:
+  - id: a
+    name: A
+    configUrl: https://example.com/kiosk.json
+    icon:
+      glyph: home
+      vector: app-icons/gasoline.xml

@@ -1,0 +1,6 @@
+# expect: an explicit applicationId wins over the derived one
+variants:
+  - id: a
+    name: A
+    configUrl: https://example.com/kiosk.json
+    applicationId: com.example.somethingelse

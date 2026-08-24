@@ -67,6 +67,12 @@
 #                      Fixed per build; a granted permission is revoked, as for
 #                      any app, in Android's own settings. A page inside the
 #                      anchored domain is the only one that can ask.
+#   locationReason     optional, and only with `allowLocation: true`. Why this
+#                      variant wants the position, in one sentence addressed to
+#                      the user. Android never shows it -- the system writes its
+#                      own prompt -- but iOS terminates an app that asks without
+#                      one, so this is the text that build carries. Omitted = a
+#                      sentence generated from `name`.
 #   icon.glyph         optional (container). One of: container, equalizer, apps,
 #                      dashboard, list, menu, home, monitor, chat, info, lock,
 #                      bolt, star, circle, square, triangle, diamond.
@@ -128,6 +134,7 @@ variants:
     showMenu: false
     allowExternalNavigation: true
     allowLocation: true
+    locationReason: Gasoline uses your location to find the cheapest fuel near you.
     screenMode: statusBar
     barColor:
       light: "#F4F2ED"

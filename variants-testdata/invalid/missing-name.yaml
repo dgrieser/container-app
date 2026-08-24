@@ -1,0 +1,4 @@
+# expect: name is required
+variants:
+  - id: a
+    configUrl: https://example.com/kiosk.json

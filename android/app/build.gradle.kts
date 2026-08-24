@@ -18,11 +18,18 @@ val variantDimension = "app"
  */
 val repoRoot: File = rootProject.rootDir.parentFile
 
+/** The built-in launcher symbols, shared with the iOS build. */
+val launcherGlyphs = LauncherGlyphs.load(repoRoot)
+
 /**
  * The apps to build out of this container — name, symbol, kiosk config and the
  * behaviour switches — all declared in app-variants.yaml.
  */
-val appVariants = AppVariants.load(File(repoRoot, "app-variants.yaml"), baseApplicationId)
+val appVariants = AppVariants.load(
+    File(repoRoot, "app-variants.yaml"),
+    baseApplicationId,
+    launcherGlyphs
+)
 
 /**
  * What this build calls itself, taken from the git tag: the release workflow
@@ -179,7 +186,7 @@ androidComponents {
             description = "Generates the launcher icon for the ${spec.name} variant."
             background.set(spec.icon.background)
             tint.set(spec.icon.tint)
-            spec.icon.glyph?.let { glyphPathData.set(LauncherGlyphs.pathData(it)) }
+            spec.icon.glyph?.let { glyphPathData.set(launcherGlyphs.pathData(it)) }
             spec.icon.vector?.let { vectorFile.set(File(repoRoot, it)) }
         }
         variant.sources.res?.addGeneratedSourceDirectory(

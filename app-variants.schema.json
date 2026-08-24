@@ -1,0 +1,131 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/dgrieser/container-app/app-variants.schema.json",
+  "title": "app-variants.yaml",
+  "description": "The apps to build out of this container. This schema is the normative source for the key sets, the value types, the screenMode names and every default, because two builds parse the same file in two languages: android/buildSrc/src/main/kotlin/AppVariants.kt and ios/tools/variants.py. Rules a schema cannot express -- unique ids, unique applicationIds, at most one default, reserved ids, configUrl required unless defaultKioskPath is absolute, glyph xor vector, locationReason only with allowLocation -- are implemented in both parsers and covered by the shared corpus in variants-testdata/. The set of icon.glyph names is deliberately NOT repeated here: it lives once, in app-icons/glyphs.yaml, and both parsers validate against that file.",
+
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["variants"],
+  "properties": {
+    "applicationId": {
+      "type": "string",
+      "description": "Base for generated applicationIds / bundle identifiers; must match the Android module namespace. Defaults to the namespace the build passes in."
+    },
+    "variants": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/variant" }
+    }
+  },
+
+  "$defs": {
+    "color": {
+      "type": "string",
+      "pattern": "^#([0-9a-fA-F]{6}|[0-9a-fA-F]{8})$",
+      "description": "#RRGGBB or #AARRGGBB."
+    },
+
+    "variant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*$",
+          "description": "Internal name. Becomes the Gradle flavour, the Xcode target and scheme, and the applicationId / bundle-id suffix. The ids the Android build reserves (main, test, androidTest, debug, release) are rejected by the parsers, not here."
+        },
+        "name": {
+          "type": "string",
+          "pattern": "^[^<>&]+$",
+          "description": "The launcher label the user sees. Reaches Android as app_name and iOS as CFBundleDisplayName, so the characters XML would have to escape are refused."
+        },
+        "applicationId": {
+          "type": "string",
+          "description": "Full override. Default: <base>.<id>, or the bare base id for the variant marked default: true."
+        },
+        "default": {
+          "type": "boolean",
+          "default": false,
+          "description": "At most one variant may set it: keeps the bare applicationId and is the flavour Android Studio preselects."
+        },
+        "versionNameSuffix": {
+          "type": "string",
+          "description": "Appended to the version name, e.g. \"-portal\". On iOS it cannot go into CFBundleShortVersionString, which Apple requires to be one to three integers, so it is carried in the custom ContainerVersionName key and the artifact filename instead."
+        },
+        "configUrl": {
+          "type": "string",
+          "pattern": "^https?://",
+          "description": "The kiosk.json this variant reads. Required unless defaultKioskPath is an absolute http(s) URL, which the parsers enforce."
+        },
+        "defaultKioskPath": {
+          "type": "string",
+          "description": "Which page to open first: an absolute http(s) URL, a path such as /dashboard, or the name of one of the configured apps. Empty = the first app in the kiosk.json."
+        },
+        "requirePin": {
+          "type": "boolean",
+          "default": true,
+          "description": "false = no PIN setup on first run and the admin menu opens straight away."
+        },
+        "showMenu": {
+          "type": "boolean",
+          "default": true,
+          "description": "false = no menu button; the app shows a single page, and the admin menu is reached by holding the bottom-right corner."
+        },
+        "screenMode": {
+          "enum": ["fullscreen", "statusBar", "navigationBar", "systemBars"],
+          "default": "fullscreen",
+          "description": "Which system UI stays on screen over the page. Only the starting point -- the admin menu changes it per device. iOS has no navigation bar, so there the last two modes are reinterpreted around the home indicator; see the platform-differences table in the README."
+        },
+        "barColor": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Colour of the bars screenMode keeps, per system theme. Irrelevant for a fullscreen variant, which has no bar to paint.",
+          "properties": {
+            "light": { "$ref": "#/$defs/color", "default": "#FFFFFF" },
+            "dark": { "$ref": "#/$defs/color", "default": "#FFFFFF" }
+          }
+        },
+        "allowUnverifiedSsl": {
+          "type": "boolean",
+          "default": false,
+          "description": "true = ship with \"allow unverified certificates\" already on. Still togglable per device in the admin menu."
+        },
+        "allowExternalNavigation": {
+          "type": "boolean",
+          "default": false,
+          "description": "false = a link leaving the anchored domain is refused. true = it is handed to the platform's default handler instead. Either way the off-domain page never loads inside the container."
+        },
+        "allowLocation": {
+          "type": "boolean",
+          "default": false,
+          "description": "true = the page may ask for the device's position, and the build declares the permissions that makes possible. false = the build carries no location permission at all."
+        },
+        "locationReason": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Why this variant wants the position, in one sentence addressed to the user. Android never shows it -- the system writes its own prompt -- but iOS terminates an app that asks without one, so it is only used there. Only meaningful together with allowLocation: true, which the parsers enforce. Omitted = a sentence generated from name."
+        },
+        "icon": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Set either glyph or vector, never both; the parsers enforce that.",
+          "properties": {
+            "glyph": {
+              "type": "string",
+              "default": "container",
+              "description": "A built-in symbol. The names are the keys of app-icons/glyphs.yaml, which both parsers validate against rather than repeating the list here."
+            },
+            "vector": {
+              "type": "string",
+              "description": "Path from the repository root to your own 108x108 vector drawable, used instead of a glyph. It brings its own colours, so tint no longer applies. The iOS generator converts it to SVG."
+            },
+            "background": { "$ref": "#/$defs/color", "default": "#1F6FEB" },
+            "tint": { "$ref": "#/$defs/color", "default": "#FFFFFF" }
+          }
+        }
+      }
+    }
+  }
+}

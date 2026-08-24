@@ -67,6 +67,14 @@ data class AppVariant(
      * it carries no location permission at all.
      */
     val allowLocation: Boolean,
+    /**
+     * Why this variant wants the device's position, in one sentence addressed to
+     * the user. Android never shows it — the system writes its own prompt — but
+     * iOS terminates an app that asks for location without one, so the value is
+     * carried here and used only by the iOS build. Null falls back to a sentence
+     * generated from [name].
+     */
+    val locationReason: String?,
     val isDefault: Boolean,
     val icon: LauncherIcon
 ) {
@@ -81,27 +89,40 @@ data class AppVariant(
  */
 object AppVariants {
 
-    private val ID_PATTERN = Regex("[a-z][a-z0-9]*")
-    private val COLOR_PATTERN = Regex("#([0-9a-fA-F]{6}|[0-9a-fA-F]{8})")
-    private val RESERVED_IDS = setOf("main", "test", "androidTest", "debug", "release")
+    // These are what `app-variants.schema.json` declares, and SchemaSyncTest
+    // asserts they still match it — hence public rather than private.
+    val ID_PATTERN = Regex("[a-z][a-z0-9]*")
+    val COLOR_PATTERN = Regex("#([0-9a-fA-F]{6}|[0-9a-fA-F]{8})")
+    val RESERVED_IDS = setOf("main", "test", "androidTest", "debug", "release")
 
-    private val TOP_LEVEL_KEYS = setOf("applicationId", "variants")
-    private val VARIANT_KEYS = setOf(
+    val TOP_LEVEL_KEYS = setOf("applicationId", "variants")
+    val VARIANT_KEYS = setOf(
         "id", "name", "applicationId", "versionNameSuffix", "configUrl",
         "defaultKioskPath", "requirePin", "showMenu", "screenMode", "barColor",
         "allowUnverifiedSsl", "allowExternalNavigation", "allowLocation",
-        "default", "icon"
+        "locationReason", "default", "icon"
     )
-    private val ICON_KEYS = setOf("glyph", "vector", "background", "tint")
-    private val BAR_COLOR_KEYS = setOf("light", "dark")
+    val ICON_KEYS = setOf("glyph", "vector", "background", "tint")
+    val BAR_COLOR_KEYS = setOf("light", "dark")
 
-    private const val DEFAULT_BACKGROUND = "#1F6FEB"
-    private const val DEFAULT_TINT = "#FFFFFF"
+    const val DEFAULT_BACKGROUND = "#1F6FEB"
+    const val DEFAULT_TINT = "#FFFFFF"
 
     /** The window background (`@color/background`), i.e. what the bars showed before. */
-    private const val DEFAULT_BAR_COLOR = "#FFFFFF"
+    const val DEFAULT_BAR_COLOR = "#FFFFFF"
 
-    fun load(file: File, fallbackApplicationId: String): List<AppVariant> {
+    const val DEFAULT_REQUIRE_PIN = true
+    const val DEFAULT_SHOW_MENU = true
+    const val DEFAULT_ALLOW_UNVERIFIED_SSL = false
+    const val DEFAULT_ALLOW_EXTERNAL_NAVIGATION = false
+    const val DEFAULT_ALLOW_LOCATION = false
+    const val DEFAULT_IS_DEFAULT = false
+
+    fun load(
+        file: File,
+        fallbackApplicationId: String,
+        glyphs: LauncherGlyphs
+    ): List<AppVariant> {
         if (!file.isFile) {
             error("Missing ${file.name}: it declares the app variants (name, icon, kiosk URL) to build.")
         }
@@ -118,7 +139,7 @@ object AppVariants {
         }
 
         val variants = rawVariants.mapIndexed { index, raw ->
-            parseVariant(raw, "${file.name} variants[$index]", file.name, baseApplicationId)
+            parseVariant(raw, "${file.name} variants[$index]", file.name, baseApplicationId, glyphs)
         }
 
         variants.groupBy { it.id }.forEach { (id, group) ->
@@ -142,7 +163,8 @@ object AppVariants {
         raw: Any?,
         where: String,
         fileName: String,
-        baseApplicationId: String
+        baseApplicationId: String,
+        glyphs: LauncherGlyphs
     ): AppVariant {
         val map = raw.asMap(fileName, where)
         map.checkKeys(fileName, where, VARIANT_KEYS)
@@ -158,7 +180,7 @@ object AppVariants {
             error("$where: name `$name` must not contain `<`, `>` or `&`.")
         }
 
-        val isDefault = map.boolean("default") ?: false
+        val isDefault = map.boolean("default") ?: DEFAULT_IS_DEFAULT
         val applicationId = map.string("applicationId")
             ?: if (isDefault) baseApplicationId else "$baseApplicationId.$id"
 
@@ -187,6 +209,13 @@ object AppVariants {
             )
         }
 
+        // A reason without a request is a sentence nobody will ever be shown, and
+        // reads as though the variant asks for a position when it does not.
+        val locationReason = map.string("locationReason")
+        if (locationReason != null && map.boolean("allowLocation") != true) {
+            error("$where: `locationReason` is only meaningful together with `allowLocation: true`.")
+        }
+
         return AppVariant(
             id = id,
             name = name,
@@ -194,15 +223,16 @@ object AppVariants {
             versionNameSuffix = map.string("versionNameSuffix"),
             configUrl = configUrl.orEmpty(),
             defaultKioskPath = defaultKioskPath,
-            requirePin = map.boolean("requirePin") ?: true,
-            showMenu = map.boolean("showMenu") ?: true,
+            requirePin = map.boolean("requirePin") ?: DEFAULT_REQUIRE_PIN,
+            showMenu = map.boolean("showMenu") ?: DEFAULT_SHOW_MENU,
             screenMode = screenMode,
             barColor = parseBarColors(map["barColor"], "$where barColor", fileName),
-            allowUnverifiedSsl = map.boolean("allowUnverifiedSsl") ?: false,
-            allowExternalNavigation = map.boolean("allowExternalNavigation") ?: false,
-            allowLocation = map.boolean("allowLocation") ?: false,
+            allowUnverifiedSsl = map.boolean("allowUnverifiedSsl") ?: DEFAULT_ALLOW_UNVERIFIED_SSL,
+            allowExternalNavigation = map.boolean("allowExternalNavigation") ?: DEFAULT_ALLOW_EXTERNAL_NAVIGATION,
+            allowLocation = map.boolean("allowLocation") ?: DEFAULT_ALLOW_LOCATION,
+            locationReason = locationReason,
             isDefault = isDefault,
-            icon = parseIcon(map["icon"], "$where icon", fileName)
+            icon = parseIcon(map["icon"], "$where icon", fileName, glyphs)
         )
     }
 
@@ -221,7 +251,12 @@ object AppVariants {
         return BarColors(light = light, dark = dark)
     }
 
-    private fun parseIcon(raw: Any?, where: String, fileName: String): LauncherIcon {
+    private fun parseIcon(
+        raw: Any?,
+        where: String,
+        fileName: String,
+        glyphs: LauncherGlyphs
+    ): LauncherIcon {
         if (raw == null) {
             return LauncherIcon(LauncherGlyphs.DEFAULT, null, DEFAULT_BACKGROUND, DEFAULT_TINT)
         }
@@ -233,8 +268,8 @@ object AppVariants {
         if (glyph != null && vector != null) {
             error("$where: set either `glyph` or `vector`, not both.")
         }
-        if (glyph != null && LauncherGlyphs.pathData(glyph) == null) {
-            error("$where: unknown glyph `$glyph`. Available: ${LauncherGlyphs.names.joinToString()}.")
+        if (glyph != null && glyphs.pathData(glyph) == null) {
+            error("$where: unknown glyph `$glyph`. Available: ${glyphs.names.joinToString()}.")
         }
 
         val background = map.string("background") ?: DEFAULT_BACKGROUND

@@ -1,0 +1,7 @@
+# expect: glyph is not a key of app-icons/glyphs.yaml
+variants:
+  - id: a
+    name: A
+    configUrl: https://example.com/kiosk.json
+    icon:
+      glyph: unicorn

@@ -1,0 +1,3 @@
+# expect: each entry under variants must be a mapping
+variants:
+  - container

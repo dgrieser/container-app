@@ -29,7 +29,7 @@ class GenerateLauncherIconsTaskTest {
 
     @Test
     fun `generates well-formed resources for every glyph`() {
-        LauncherGlyphs.names.forEach { glyph ->
+        TestPaths.glyphs().names.forEach { glyph ->
             val output = generate(glyph = glyph, background = "#123456", tint = "#FEDCBA")
             expectedFiles.forEach { relative ->
                 val file = File(output, relative)
@@ -40,7 +40,7 @@ class GenerateLauncherIconsTaskTest {
             assertTrue("$glyph: tint missing", foreground.contains("#FEDCBA"))
             assertTrue(
                 "$glyph: path data missing",
-                foreground.contains(LauncherGlyphs.pathData(glyph)!!)
+                foreground.contains(TestPaths.glyphs().pathData(glyph)!!)
             )
             assertTrue(
                 "$glyph: background colour missing",
@@ -92,7 +92,7 @@ class GenerateLauncherIconsTaskTest {
         val task = project.tasks.register<GenerateLauncherIconsTask>("generateIcons") {
             this.background.set(background)
             this.tint.set(tint)
-            glyph?.let { glyphPathData.set(LauncherGlyphs.pathData(it)) }
+            glyph?.let { glyphPathData.set(TestPaths.glyphs().pathData(it)) }
             vector?.let { vectorFile.set(it) }
             this.outputDir.set(outputDir)
         }

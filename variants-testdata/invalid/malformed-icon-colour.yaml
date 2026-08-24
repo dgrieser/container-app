@@ -1,0 +1,7 @@
+# expect: icon colours must be #RRGGBB or #AARRGGBB
+variants:
+  - id: a
+    name: A
+    configUrl: https://example.com/kiosk.json
+    icon:
+      background: blue

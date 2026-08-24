@@ -1,0 +1,5 @@
+# expect: an absolute defaultKioskPath needs no kiosk.json
+variants:
+  - id: a
+    name: A
+    defaultKioskPath: https://a.example.com/

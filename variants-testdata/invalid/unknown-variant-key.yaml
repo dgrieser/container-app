@@ -1,0 +1,6 @@
+# expect: unknown key
+variants:
+  - id: a
+    name: A
+    configUrl: https://example.com/kiosk.json
+    hamburger: false

@@ -1,0 +1,6 @@
+# expect: defaultKioskPath may name one of the configured apps
+variants:
+  - id: a
+    name: A
+    configUrl: https://example.com/kiosk.json
+    defaultKioskPath: Dashboard
