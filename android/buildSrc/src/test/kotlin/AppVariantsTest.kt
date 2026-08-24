@@ -190,7 +190,7 @@ class AppVariantsTest {
     @Test
     fun `the screen modes match the app's ScreenMode enum`() {
         val source = File(
-            repoRoot(),
+            gradleRoot(),
             "app/src/main/java/de/davidgrieser/container/ScreenMode.kt"
         )
         assertTrue("${source.name} is missing", source.isFile)
@@ -349,8 +349,17 @@ class AppVariantsTest {
         assertTrue("$what should have been rejected", failed)
     }
 
-    /** buildSrc is its own build, so the repository root is one level up. */
-    private fun repoRoot(): File = File(System.getProperty("user.dir")).let {
+    /**
+     * The root of this Gradle build (`android/`). buildSrc is its own build, so
+     * when the tests run from there it is one level up.
+     */
+    private fun gradleRoot(): File = File(System.getProperty("user.dir")).let {
         if (it.name == "buildSrc") it.parentFile else it
     }
+
+    /**
+     * The repository root, one level above [gradleRoot]. `app-variants.yaml` and
+     * `app-icons/` are shared with the iOS app and so live outside `android/`.
+     */
+    private fun repoRoot(): File = gradleRoot().parentFile
 }

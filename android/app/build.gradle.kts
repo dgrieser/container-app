@@ -12,10 +12,17 @@ val baseApplicationId = "de.davidgrieser.container"
 val variantDimension = "app"
 
 /**
+ * The repository root, one level above this Gradle build. `app-variants.yaml`,
+ * `app-icons/` and the git metadata are shared with the iOS app, so they live
+ * outside `android/`.
+ */
+val repoRoot: File = rootProject.rootDir.parentFile
+
+/**
  * The apps to build out of this container — name, symbol, kiosk config and the
  * behaviour switches — all declared in app-variants.yaml.
  */
-val appVariants = AppVariants.load(rootProject.file("app-variants.yaml"), baseApplicationId)
+val appVariants = AppVariants.load(File(repoRoot, "app-variants.yaml"), baseApplicationId)
 
 /**
  * What this build calls itself, taken from the git tag: the release workflow
@@ -26,7 +33,7 @@ val appVariants = AppVariants.load(rootProject.file("app-variants.yaml"), baseAp
 val appVersion = AppVersion.resolve(
     declared = providers.gradleProperty("appVersion").orNull
         ?: providers.environmentVariable("APP_VERSION").orNull,
-    repositoryRoot = rootProject.rootDir
+    repositoryRoot = repoRoot
 )
 
 android {
@@ -106,7 +113,7 @@ android {
         // The release signing config is wired up to read from a keystore.properties
         // file that is intentionally NOT committed. Drop your keystore + a
         // keystore.properties file (see keystore.properties.example) into the
-        // project root and release builds will be signed automatically.
+        // `android/` directory and release builds will be signed automatically.
         create("release") {
             val propsFile = rootProject.file("keystore.properties")
             if (propsFile.exists()) {
@@ -173,7 +180,7 @@ androidComponents {
             background.set(spec.icon.background)
             tint.set(spec.icon.tint)
             spec.icon.glyph?.let { glyphPathData.set(LauncherGlyphs.pathData(it)) }
-            spec.icon.vector?.let { vectorFile.set(rootProject.file(it)) }
+            spec.icon.vector?.let { vectorFile.set(File(repoRoot, it)) }
         }
         variant.sources.res?.addGeneratedSourceDirectory(
             generateIcons,

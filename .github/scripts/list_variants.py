@@ -2,8 +2,8 @@
 """Print the variants declared in app-variants.yaml as a JSON build matrix.
 
 Used by the release workflow to build one APK per variant. Only the fields the
-workflow needs are emitted; the Gradle build (buildSrc/src/main/kotlin) remains
-the authority on validating the rest of the file.
+workflow needs are emitted; the Gradle build (android/buildSrc/src/main/kotlin)
+remains the authority on validating the rest of the file.
 """
 
 import json

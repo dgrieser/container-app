@@ -57,11 +57,12 @@ jobs:
             ${{ runner.os }}-gradle-
 
       - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
+        run: chmod +x android/gradlew
 
       - name: Build with Gradle
         # The pushed tag is the version: it becomes versionName, and versionCode
         # is derived from it, so each release supersedes the last on a device.
+        working-directory: android
         run: |
           ./gradlew clean assemble${{ matrix.variant.gradleName }}Release \
             -PappVersion="${{ github.ref_name }}"
@@ -70,7 +71,7 @@ jobs:
         uses: ilharp/sign-android-release@v2.0.0
         id: sign_app
         with:
-          releaseDir: app/build/outputs/apk/${{ matrix.variant.id }}/release
+          releaseDir: android/app/build/outputs/apk/${{ matrix.variant.id }}/release
           signingKey: ${{ secrets.SIGNINGKEY_BASE64 }}
           keyAlias: ${{ secrets.KEY_ALIAS }}
           keyStorePassword: ${{ secrets.KEY_STORE_PASSWORD }}
