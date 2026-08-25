@@ -12,16 +12,47 @@ final class NavigationPolicyTests: XCTestCase {
     private let anchor = "https://portal.example.com/"
 
     func testInDomainIsAllowedWhicheverWayTheVariantIsBuilt() {
-        for allowExternal in [true, false] {
-            XCTAssertEqual(
-                .allow,
-                NavigationPolicy.decide(
-                    anchor: anchor,
-                    candidate: "https://cdn.example.com/asset",
-                    allowExternalNavigation: allowExternal
+        // allowExternalNavigation only decides what happens to a link that
+        // *leaves* the domain; it never affects one that stays.
+        for candidate in [
+            "https://portal.example.com/other",        // the anchored host
+            "https://example.com/",                    // its parent
+            "https://assets.portal.example.com/logo",  // a descendant
+        ] {
+            for allowExternal in [true, false] {
+                XCTAssertEqual(
+                    .allow,
+                    NavigationPolicy.decide(
+                        anchor: anchor,
+                        candidate: candidate,
+                        allowExternalNavigation: allowExternal
+                    ),
+                    "\(candidate) with allowExternalNavigation: \(allowExternal)"
                 )
-            )
+            }
         }
+    }
+
+    func testASiblingHostCountsAsLeavingTheDomain() {
+        // `cdn.example.com` shares a parent with `portal.example.com` but is
+        // neither above nor below it, so it is off-domain. Worth pinning: it is
+        // the case someone would most likely assume goes the other way.
+        XCTAssertEqual(
+            .blocked,
+            NavigationPolicy.decide(
+                anchor: anchor,
+                candidate: "https://cdn.example.com/asset",
+                allowExternalNavigation: false
+            )
+        )
+        XCTAssertEqual(
+            .handOffExternally,
+            NavigationPolicy.decide(
+                anchor: anchor,
+                candidate: "https://cdn.example.com/asset",
+                allowExternalNavigation: true
+            )
+        )
     }
 
     func testOffDomainIsRefusedByDefault() {

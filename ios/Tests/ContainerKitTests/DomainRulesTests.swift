@@ -24,6 +24,18 @@ final class DomainRulesTests: XCTestCase {
             anchor: "https://a.b.example.com/", candidate: "https://example.com/"))
     }
 
+    func testASiblingSubdomainIsRefused() {
+        // The rule is same-host, ancestor or descendant -- *not* "shares a
+        // parent". Two subdomains of one domain are unrelated to each other, and
+        // this is the case most likely to be assumed otherwise. It is Android's
+        // behaviour too: `DomainRules.kt` compares suffixes in both directions
+        // and nothing else.
+        XCTAssertFalse(DomainRules.isAllowed(
+            anchor: "https://portal.example.com/", candidate: "https://cdn.example.com/"))
+        XCTAssertFalse(DomainRules.isAllowed(
+            anchor: "https://a.example.com/", candidate: "https://b.example.com/"))
+    }
+
     func testAnotherDomainIsRefused() {
         for candidate in [
             "https://other.com/",

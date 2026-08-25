@@ -20,7 +20,9 @@ final class InsecureTrustTests: XCTestCase {
     }
 
     func testTheSwitchOnTrustsTheAnchoredDomain() {
-        for host in ["internal.example.com", "cdn.example.com", "example.com"] {
+        // The anchored host itself, and its parent -- the same either-direction
+        // rule the domain lock uses.
+        for host in ["internal.example.com", "example.com"] {
             XCTAssertEqual(
                 .trust,
                 InsecureTrust.decide(
@@ -28,6 +30,31 @@ final class InsecureTrustTests: XCTestCase {
                 host
             )
         }
+        // A descendant of the anchor too.
+        XCTAssertEqual(
+            .trust,
+            InsecureTrust.decide(
+                host: "assets.internal.example.com",
+                anchor: anchor,
+                allowUnverifiedSSL: true,
+                isServerTrust: true
+            )
+        )
+    }
+
+    func testASiblingHostIsNotCoveredByTheAnchor() {
+        // `cdn.example.com` shares a parent with `internal.example.com` but is
+        // neither its ancestor nor its descendant, so the lock does not cover it
+        // and neither does the bypass. Easy to assume otherwise.
+        XCTAssertEqual(
+            .reject(host: "cdn.example.com"),
+            InsecureTrust.decide(
+                host: "cdn.example.com",
+                anchor: anchor,
+                allowUnverifiedSSL: true,
+                isServerTrust: true
+            )
+        )
     }
 
     func testABrokenCertificateElsewhereIsStillRefused() {
