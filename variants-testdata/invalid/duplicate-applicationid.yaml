@@ -1,0 +1,10 @@
+# expect: duplicate applicationId, so they could not install side by side
+variants:
+  - id: a
+    name: A
+    configUrl: https://example.com/kiosk.json
+    applicationId: com.example.same
+  - id: b
+    name: B
+    configUrl: https://example.com/kiosk.json
+    applicationId: com.example.same

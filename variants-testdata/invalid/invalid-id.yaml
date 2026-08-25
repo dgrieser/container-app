@@ -1,0 +1,5 @@
+# expect: id must match [a-z][a-z0-9]*
+variants:
+  - id: My-App
+    name: A
+    configUrl: https://example.com/kiosk.json

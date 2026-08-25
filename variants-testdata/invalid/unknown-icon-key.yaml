@@ -1,0 +1,7 @@
+# expect: unknown key under icon
+variants:
+  - id: a
+    name: A
+    configUrl: https://example.com/kiosk.json
+    icon:
+      colour: "#000000"

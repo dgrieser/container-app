@@ -1,0 +1,8 @@
+# expect: duplicate variant id
+variants:
+  - id: a
+    name: A
+    configUrl: https://example.com/kiosk.json
+  - id: a
+    name: Also A
+    configUrl: https://example.com/kiosk.json

@@ -1,0 +1,5 @@
+# expect: id reserved by the Android build
+variants:
+  - id: release
+    name: A
+    configUrl: https://example.com/kiosk.json

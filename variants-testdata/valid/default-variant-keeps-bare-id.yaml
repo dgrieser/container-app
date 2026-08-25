@@ -1,0 +1,11 @@
+# expect: `default: true` keeps the base applicationId
+applicationId: com.example.container
+
+variants:
+  - id: a
+    default: true
+    name: A
+    configUrl: https://example.com/kiosk.json
+  - id: b
+    name: B
+    configUrl: https://example.com/kiosk.json

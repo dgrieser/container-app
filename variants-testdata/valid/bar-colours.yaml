@@ -1,0 +1,9 @@
+# expect: both themes, six and eight hex digits
+variants:
+  - id: a
+    name: A
+    configUrl: https://example.com/kiosk.json
+    screenMode: systemBars
+    barColor:
+      light: "#F4F2ED"
+      dark: "#CC0D0E11"

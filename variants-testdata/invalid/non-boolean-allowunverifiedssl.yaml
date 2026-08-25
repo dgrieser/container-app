@@ -1,0 +1,6 @@
+# expect: allowUnverifiedSsl must be true or false
+variants:
+  - id: a
+    name: A
+    configUrl: https://example.com/kiosk.json
+    allowUnverifiedSsl: yes please

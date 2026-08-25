@@ -1,0 +1,10 @@
+# expect: only one variant may set default: true
+variants:
+  - id: a
+    name: A
+    configUrl: https://example.com/kiosk.json
+    default: true
+  - id: b
+    name: B
+    configUrl: https://example.com/kiosk.json
+    default: true

@@ -1,0 +1,175 @@
+name: Variants CI
+
+# The check that keeps the two platforms describing the same app. It runs on
+# every pull request and costs nothing: all of it is Linux except one simulator
+# build.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  parsers-agree:
+    name: Both parsers read app-variants.yaml the same way
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout project
+        uses: actions/checkout@v4.2.2
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4.7.1
+        with:
+          java-version: "17"
+          distribution: "temurin"
+          cache: gradle
+
+      # A standalone Python rather than the runner's own. The macOS runner's is
+      # Homebrew's, which is PEP 668 externally-managed and refuses a plain
+      # `pip install`; pinning one here keeps both platforms alike and immune to
+      # the image changing underneath.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install the generator's dependencies
+        run: pip install --quiet -r ios/tools/requirements.txt
+
+      # The Kotlin side: the strict parser, the schema-sync test and the shared
+      # accept/reject corpus. No Android SDK needed, so it runs here.
+      - name: buildSrc tests
+        working-directory: android
+        run: ./gradlew --console=plain -p buildSrc test
+
+      # The Python side: the same corpus, the version arithmetic, the icons, the
+      # plists, and the contract between the generator and VariantConfig.swift.
+      - name: Generator tests
+        working-directory: ios/tools
+        run: python3 -m unittest discover -s tests -t . -v
+
+      - name: Generate the iOS project files
+        run: python3 ios/tools/generate.py
+
+      # The check no key- or enum-level comparison can make: whether the two
+      # parsers apply the same *defaults*.
+      - name: The two parsers produce the same model
+        run: |
+          cd android && ./gradlew --console=plain -q dumpVariantsJson > /dev/null && cd ..
+          python3 ios/tools/generate.py --dump-json > /tmp/ios-variants.json
+          if ! diff -u android/build/variants.json /tmp/ios-variants.json; then
+            echo "::error::AppVariants.kt and ios/tools/variants.py disagree about app-variants.yaml"
+            exit 1
+          fi
+          echo "Both parsers agree."
+
+      - name: The release matrix still reads
+        run: python3 .github/scripts/list_variants.py
+
+  icons:
+    name: Draw the app icons
+    runs-on: ubuntu-latest
+    # On Linux, as in the release workflow: `pathData` is SVG path data, so
+    # nothing about an app icon needs a Mac. It also keeps cairo off the macOS
+    # runner, where CairoSVG needs DYLD_FALLBACK_LIBRARY_PATH pointed at
+    # /opt/homebrew/lib to find its dylib at all.
+    steps:
+      - name: Checkout project
+        uses: actions/checkout@v4.2.2
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install the generator's dependencies
+        run: pip install --quiet -r ios/tools/requirements.txt
+
+      - name: Render every variant's .appiconset
+        run: python3 ios/tools/generate.py --only-icons
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pr-appicons
+          path: ios/Generated/Variants/*/Assets.xcassets
+          if-no-files-found: error
+
+  ios-compiles:
+    name: iOS builds (simulator, no signing)
+    needs: icons
+    # macos-15 for its Xcode 16, and the Xcode is deliberately *not* pinned to an
+    # older one: `brew install xcodegen` gets the current XcodeGen, which writes
+    # the Xcode 16 project format (objectVersion 77), and an older Xcode cannot
+    # read it. Pinning one side and not the other is what broke this.
+    #
+    # The language version is pinned instead, in ios/Config/Base.xcconfig
+    # (SWIFT_VERSION), so a new Xcode cannot quietly change how the code is
+    # compiled.
+    runs-on: macos-15
+    steps:
+      - name: Checkout project
+        uses: actions/checkout@v4.2.2
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Record the toolchain
+        # Both halves in the log, because their pairing is the thing that has to
+        # hold.
+        run: |
+          xcodebuild -version
+          xcodegen --version
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install the generator's dependencies
+        # Only PyYAML: the icons arrive as an artifact, so CairoSVG and cairo are
+        # not needed on this runner.
+        run: pip install --quiet pyyaml
+
+      - name: Fetch the icons drawn on Linux
+        uses: actions/download-artifact@v4
+        with:
+          name: pr-appicons
+          path: ios/Generated/Variants
+
+      - name: Generate the project
+        # SKIP_ICONS because they are already here; the generator leaves an
+        # existing asset catalogue alone, so they survive into the build and the
+        # per-variant catalogues are genuinely compiled.
+        working-directory: ios
+        run: make project SKIP_ICONS=1
+
+      - name: Pick an available simulator
+        id: simulator
+        # Discovered rather than named: which iPhones a runner image carries
+        # changes with the image, and a `test` destination has to be a concrete
+        # one (unlike `build`, which takes a generic destination). The Makefile
+        # calls the same script.
+        run: |
+          name="$(python3 ios/tools/pick_simulator.py)"
+          echo "Using simulator: $name"
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+
+      # A simulator build needs no signing material at all, which is what makes
+      # this the cheapest possible check that the Swift actually compiles.
+      - name: Build and test
+        working-directory: ios
+        run: |
+          xcodebuild test \
+            -project Container.xcodeproj \
+            -scheme container \
+            -destination 'platform=iOS Simulator,name=${{ steps.simulator.outputs.name }}'
+
+      # Every variant compiles, not only the default one: a per-variant Info.plist
+      # or asset catalogue can be wrong on its own.
+      - name: Build the other variants
+        working-directory: ios
+        run: |
+          for scheme in podcaster gasoline; do
+            echo "::group::$scheme"
+            xcodebuild build \
+              -project Container.xcodeproj \
+              -scheme "$scheme" \
+              -destination 'platform=iOS Simulator,name=${{ steps.simulator.outputs.name }}'
+            echo "::endgroup::"
+          done

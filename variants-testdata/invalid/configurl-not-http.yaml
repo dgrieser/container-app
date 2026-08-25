@@ -1,0 +1,5 @@
+# expect: configUrl must be an absolute http(s) URL
+variants:
+  - id: a
+    name: A
+    configUrl: ftp://example.com/kiosk.json

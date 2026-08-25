@@ -1,0 +1,7 @@
+# expect: unknown key under barColor
+variants:
+  - id: a
+    name: A
+    configUrl: https://example.com/kiosk.json
+    barColor:
+      night: "#000000"

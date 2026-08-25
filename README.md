@@ -1,16 +1,22 @@
 # Container
 
-An Android **kiosk container app**. It displays a set of web apps that are
-controlled centrally by a JSON file hosted on `david-grieser.de`. Users switch
-between the allowed web apps from an in-app menu, but cannot navigate the
+An **Android and iOS kiosk container app**. It displays a set of web apps that
+are controlled centrally by a JSON file hosted on `david-grieser.de`. Users
+switch between the allowed web apps from an in-app menu, but cannot navigate the
 browser away to any other domain — a variant may opt into letting off-domain
 links open *outside* the app, in the device's browser. An admin (PIN-protected)
 can point the app at a different configuration URL and change the PIN.
 
 One code base can ship as **several different apps**: name, icon, kiosk
 configuration and behaviour come from [`app-variants.yaml`](app-variants.yaml),
-and the release pipeline builds one installable APK per entry. See
-[App variants](#app-variants).
+and the release pipeline builds one installable APK **and one `.ipa`** per entry.
+See [App variants](#app-variants).
+
+Both platforms read that one file, so a new variant or a changed kiosk URL lands
+on both at once. Where iOS cannot do what Android does — it has no navigation
+bar, and it will not let an app accept an invalid certificate on a plist setting
+alone — the difference is written down rather than papered over: see
+[Platform differences](#platform-differences).
 
 ## Features
 
@@ -35,22 +41,25 @@ and the release pipeline builds one installable APK per entry. See
   [External links](#external-links).
 - **Location, if the variant asks for it (opt-in).** A variant with
   `allowLocation: true` lets its page use `navigator.geolocation` — the device's
-  GPS — after Android's own permission prompt. Every other build carries no
-  location permission at all, so its pages are refused outright. Only a page
-  inside the anchored domain can ask. See [Location](#location).
+  GPS — after the system's own permission prompt. Every other build carries no
+  location permission at all, so its pages are refused outright. On Android only
+  a page inside the anchored domain can ask; iOS gives the app no way to tell who
+  asked, so that second check does not exist there. See [Location](#location).
 - **Hamburger menu.** A small, translucent menu button sits at the
   **bottom-right**. It is deliberately unobtrusive: 36 dp, neutral grey, and it
   fades down to 30 % opacity a couple of seconds after the last touch, so it
   barely registers over the page until you reach for it. Tapping it opens a
   bottom sheet to switch between the allowed apps. Variants with
   `showMenu: false` drop the button entirely and show a single page.
-- **Screen modes.** How much of Android's own UI stays over the page is a
+- **Screen modes.** How much of the system's own UI stays over the page is a
   setting, not a given: full screen (the default), full screen with the status
   bar, full screen with the navigation bar, or both bars in view. A variant
   declares its starting point with `screenMode`, and the admin menu changes it
   per device. A bar that stays is painted in the variant's own `barColor` — one
   for light mode, one for dark — so the strip reads as part of the page rather
-  than a white band above it. See [Screen modes](#screen-modes).
+  than a white band above it. iOS has no navigation bar, so there the last two
+  modes are about the home indicator instead. See
+  [Screen modes](#screen-modes).
 - **Pull to refresh.** Sliding down with a finger from the top of the page
   reloads it, the way browser apps do. The gesture only fires when the page is
   already scrolled to the top, so it never interferes with scrolling. In
@@ -125,18 +134,19 @@ variants:
 | `configUrl` | yes\* | The `kiosk.json` this variant loads by default. \*Optional when `defaultKioskPath` is an absolute http(s) URL — that variant then reads no configuration file at all. |
 | `applicationId` | no | Full override. Default: `<base>.<id>`, or the bare base id for the `default: true` variant. |
 | `default` | no | One variant may set it: keeps the bare applicationId and is the flavour Android Studio preselects. |
-| `versionNameSuffix` | no | Appended to the version name, e.g. `-portal`. |
+| `versionNameSuffix` | no | Appended to the version name, e.g. `-portal`. On iOS it cannot go in `CFBundleShortVersionString`, which Apple requires to be one to three integers, so it lives in a custom key and the artifact name — see [Platform differences](#platform-differences). |
 | `defaultKioskPath` | no | Which page to open first (see below). Empty = first app in the `kiosk.json`. |
 | `requirePin` | no (`true`) | `false` = no PIN setup on first run and the admin menu opens without one. |
 | `showMenu` | no (`true`) | `false` = no hamburger button; the app shows a single page and cannot be switched. |
-| `screenMode` | no (`fullscreen`) | Which system bars stay over the page: `fullscreen` (neither), `statusBar` (top bar only), `navigationBar` (bottom bar only), `systemBars` (both). Only the starting point — changeable per device in the admin menu. See [Screen modes](#screen-modes). |
+| `screenMode` | no (`fullscreen`) | Which system bars stay over the page: `fullscreen` (neither), `statusBar` (top bar only), `navigationBar` (bottom bar only), `systemBars` (both). Only the starting point — changeable per device in the admin menu. iOS has no navigation bar, so the last two are reinterpreted around the home indicator. See [Screen modes](#screen-modes). |
 | `barColor.light` | no (`#FFFFFF`) | Colour of the bars `screenMode` keeps while the device is in light mode, `#RRGGBB` or `#AARRGGBB`. Fixed per build. |
 | `barColor.dark` | no (`#FFFFFF`) | The same for dark mode. |
-| `allowUnverifiedSsl` | no (`false`) | `true` = the *Allow unverified certificates* switch starts on, for kiosks against a self-signed or internal-CA server. Still togglable per device in the admin menu. |
+| `allowUnverifiedSsl` | no (`false`) | `true` = the *Allow unverified certificates* switch starts on, for kiosks against a self-signed or internal-CA server. Still togglable per device in the admin menu. On iOS this also writes a narrow App Transport Security exception for the variant's own host, without which the app is never asked about the certificate at all. |
 | `allowExternalNavigation` | no (`false`) | `false` = an off-domain link is refused. `true` = it is opened by Android's default handler (browser or a matching app) instead, outside the container. Fixed per build. |
-| `allowLocation` | no (`false`) | `true` = the page may ask for the device's position, and the build declares the location permissions. `false` = no location permission in the APK at all and `navigator.geolocation` fails. Fixed per build. See [Location](#location). |
+| `allowLocation` | no (`false`) | `true` = the page may ask for the device's position, and the build declares the location permissions. `false` = no location permission in the APK at all, and no usage description in the iOS build, so `navigator.geolocation` fails. Fixed per build. See [Location](#location). |
+| `locationReason` | no | Only with `allowLocation: true`. Why this variant wants the position, in one sentence addressed to the user. Android never shows it — the system writes its own prompt — but **iOS terminates an app that asks without one**, so this is the text that build carries. Omitted = a sentence generated from `name`. |
 | `icon.glyph` | no (`container`) | Built-in symbol: `container`, `equalizer`, `apps`, `dashboard`, `list`, `menu`, `home`, `monitor`, `chat`, `info`, `lock`, `bolt`, `star`, `circle`, `square`, `triangle`, `diamond`. |
-| `icon.vector` | no | Path (from the repo root) to your own 108×108 vector drawable, used instead of a glyph. |
+| `icon.vector` | no | Path (from the repo root) to your own 108×108 vector drawable, used instead of a glyph. The iOS build converts it to SVG and rasterises it; the converter refuses anything it cannot reproduce faithfully rather than dropping it. |
 | `icon.background` | no (`#1F6FEB`) | Icon background colour, `#RRGGBB` or `#AARRGGBB`. |
 | `icon.tint` | no (`#FFFFFF`) | Glyph colour. |
 
@@ -162,14 +172,20 @@ the app list, so a `configUrl` is then required and the build fails without one.
 An admin can still point such a variant at a configuration URL later; clearing
 that field again returns it to its pinned page.
 
-**Icons are generated, not checked in.** For every variant the build writes an
-adaptive icon (plus a layered fallback for API 24/25) from the glyph and colours
-above into a generated resource folder — see
-[`buildSrc/src/main/kotlin`](buildSrc/src/main/kotlin). Nothing needs to be
-drawn by hand to tell two installed builds apart. A variant whose symbol is more
+**Icons are generated, not checked in.** For every variant the Android build
+writes an adaptive icon (plus a layered fallback for API 24/25) from the glyph and
+colours above into a generated resource folder — see
+[`android/buildSrc/src/main/kotlin`](android/buildSrc/src/main/kotlin) — and the
+iOS generator rasterises the same glyph to a 1024×1024 `.appiconset`. Nothing
+needs to be drawn by hand to tell two installed builds apart.
+
+The symbols themselves live in [`app-icons/glyphs.yaml`](app-icons/glyphs.yaml),
+once: a 24×24 `pathData` *is* SVG path data, which is the reason one file can
+feed an Android adaptive icon and an iOS app icon. A variant whose symbol is more
 than a glyph points `icon.vector` at a 108×108 vector drawable in
-[`app-icons/`](app-icons) instead; that file becomes the icon foreground
-verbatim, so it brings its own colours and `icon.tint` no longer applies.
+[`app-icons/`](app-icons) instead; that file becomes the Android icon foreground
+verbatim, so it brings its own colours and `icon.tint` no longer applies, and the
+iOS generator converts it to SVG on the way to a PNG.
 
 **Reaching the admin menu without a menu button.** A variant with
 `showMenu: false` has no visible entry point, so **holding the bottom-right
@@ -227,6 +243,21 @@ A variant picks where it starts in
 [`app-variants.yaml`](app-variants.yaml); Admin → **Screen mode** changes it
 per device and applies it immediately, no restart. The `gasoline` variant ships
 as `statusBar`, everything else as `fullscreen`.
+
+**On iOS there is no navigation bar**, and the home indicator can be dimmed but
+never removed, so the four names keep their meaning as best they can:
+
+| `screenMode` | On iOS |
+|---|---|
+| `fullscreen` | Status bar hidden, home indicator dimmed. |
+| `statusBar` | Status bar in view, home indicator dimmed. |
+| `navigationBar` | Status bar hidden, home indicator at full strength. |
+| `systemBars` | Both in view, the page below the status bar. |
+
+Two further limits there, both listed in
+[Platform differences](#platform-differences): iOS force-hides the status bar on
+an iPhone in landscape whatever the mode says, and the swipe that reveals a hidden
+one also pulls Control Centre.
 
 Two details are worth knowing:
 
@@ -327,17 +358,29 @@ under the app's permissions on the device, and `navigator.geolocation` fails
 immediately — an answer the page can handle, rather than a request that hangs.
 The permissions and the (optional) GPS feature are generated into that variant's
 manifest only, next to its launcher icon; see
-[`buildSrc/src/main/kotlin`](buildSrc/src/main/kotlin).
+[`android/buildSrc/src/main/kotlin`](android/buildSrc/src/main/kotlin).
 
-With it, the first request from the page brings up **Android's own permission
-prompt**, asking for the precise and approximate permissions together so the
-user can pick either — the coarse one still yields a position. Three things are
-checked, in order: the build allows location, the asking origin is inside the
-domain lock, and the permission is held.
+With it, the first request from the page brings up **the system's own permission
+prompt**. On Android it asks for the precise and approximate permissions together
+so the user can pick either — the coarse one still yields a position — and three
+things are checked, in order: the build allows location, the asking origin is
+inside the domain lock, and the permission is held.
 
-- **The domain lock applies here too.** An embedded third-party frame cannot
-  borrow the permission the anchored site was granted; such a request is refused
-  and the app says which host asked. This mirrors how the TLS bypass is limited.
+- **The domain lock applies here too — on Android.** An embedded third-party
+  frame cannot borrow the permission the anchored site was granted; such a
+  request is refused and the app says which host asked. This mirrors how the TLS
+  bypass is limited. **On iOS this check does not exist**, because `WKWebView`
+  answers the page itself and never says which origin asked. The build-level gate
+  is intact, and it is the stronger half — a variant without `allowLocation`
+  carries no usage description, so it cannot ask at all — but a frame inside a
+  page on an `allowLocation` build can use the permission the site was granted.
+  This is the one security property the iOS app is weaker on, and it is a
+  deliberate choice: the alternative is shimming `navigator.geolocation` with
+  injected JavaScript, which reimplements the W3C API, is itself escapable from a
+  script-created frame, and is a maintenance surface Android never had.
+- **iOS asks once, ever.** A denial is permanent until the user visits Settings,
+  so the app offers to take them there rather than simply reporting the refusal.
+  Android's prompt can come back, so it does not need to.
 - **Nothing is remembered by the WebView.** The answer is given afresh each time,
   so revoking the permission in Android's settings takes effect immediately.
   There is no in-app switch to undo a grant, because Android already has one —
@@ -381,9 +424,16 @@ new setting applies to hosts that were already visited.
 
 ## Building
 
+`app-variants.yaml`, `app-icons/` and `sample/` sit at the repository root
+because both builds read them; each platform's build lives in its own directory.
+
+### Android
+
 Requires the Android SDK (platform 34, build-tools 34.x) and JDK 17.
 
 ```bash
+cd android
+
 # Point the build at your SDK (or set ANDROID_HOME):
 echo "sdk.dir=/path/to/Android/Sdk" > local.properties
 
@@ -392,20 +442,49 @@ echo "sdk.dir=/path/to/Android/Sdk" > local.properties
 ./gradlew assembleRelease           # signed release (needs keystore.properties, see below)
 ```
 
-Output: `app/build/outputs/apk/<variant>/<build type>/`, e.g.
-`app/build/outputs/apk/container/release/`.
+Output: `android/app/build/outputs/apk/<variant>/<build type>/`, e.g.
+`android/app/build/outputs/apk/container/release/`.
 
 The variant definitions are parsed and the launcher icons generated by the small
-Gradle plugin code in [`buildSrc`](buildSrc); its unit tests run as part of every
-Gradle invocation, so an invalid `app-variants.yaml` is reported immediately.
+Gradle plugin code in [`android/buildSrc`](android/buildSrc); its unit tests run
+as part of every Gradle invocation, so an invalid `app-variants.yaml` is reported
+immediately.
+
+### iOS
+
+Requires Xcode 15 and [XcodeGen](https://github.com/yonaskolb/XcodeGen). The
+Xcode project is generated from `app-variants.yaml` rather than checked in — in
+the same spirit as the launcher icons.
+
+```bash
+brew install xcodegen cairo
+pip3 install -r ios/tools/requirements.txt
+
+cd ios
+make project    # generate everything, then write Container.xcodeproj
+make open       # …and open it
+make test
+```
+
+One scheme per variant, named after its `id`, so `xcodebuild -scheme podcaster`
+is the analogue of `assemblePodcasterRelease`. Adding a variant is an edit to
+`app-variants.yaml` and a `make project`, and nothing else.
+
+Everything except turning the spec into an `.xcodeproj` and compiling it runs
+without a Mac — including drawing the app icons, since a 24×24 `pathData` is SVG
+path data. See [`ios/README.md`](ios/README.md) for the whole picture.
 
 ## Signing
 
-Release signing reads from a git-ignored `keystore.properties` in the project
-root. Copy the example and fill in your details (you mentioned you'll add the
-signing material to the repo separately):
+### Android
+
+Release signing reads from a git-ignored `keystore.properties` in
+[`android/`](android), next to `settings.gradle.kts`. Copy the example and fill
+in your details (you mentioned you'll add the signing material to the repo
+separately):
 
 ```bash
+cd android
 cp keystore.properties.example keystore.properties
 # edit keystore.properties, and place your .jks alongside it
 ```
@@ -415,7 +494,27 @@ If `keystore.properties` is absent, release builds are simply left unsigned
 signing secrets. `keystore.properties`, `*.jks` and `*.keystore` are
 git-ignored.
 
+### iOS
+
+Release builds are **unsigned**, and that is the intended state rather than a
+gap: the apps are distributed through an AltStore source, and AltStore installs
+one by re-signing it on the device with the installing user's own Apple ID. No
+Apple Developer account, no distribution certificate and no provisioning profiles
+are involved.
+
+The asymmetry with Android is worth stating plainly, though. An unsigned APK can
+be signed by anyone with `apksigner` and installed; an unsigned `.ipa` **cannot
+be installed on a stock iPhone** without an Apple-issued identity. AltStore
+supplies that identity on the user's own device — there is no offline equivalent.
+
+To sign a *local* build so it runs on your own device, copy
+`ios/signing.local.xcconfig.example` to `ios/signing.local.xcconfig` and fill in
+your team. It is git-ignored and included only if present, the same pattern as
+`keystore.properties`.
+
 ## Releasing (CI)
+
+### Android
 
 `.github/workflows/android-release_ci.yml` builds, signs and publishes the
 release APKs automatically **when you push a git tag** (e.g. `v1.0`). It reads
@@ -439,7 +538,7 @@ the last; a tag whose minor or patch would reach 100 and break the ordering
 fails the build instead of shipping. Releases up to and including `v0.0.8` all
 carried `versionCode 1`, so any tag from here on supersedes them.
 
-A build outside a tagged checkout asks git instead (`./gradlew assembleContainerDebug`
+A build outside a tagged checkout asks git instead (`cd android && ./gradlew assembleContainerDebug`
 on this working copy produces something like `0.0.8-12-gabc1234-dirty`), so a
 locally built APK says which commit it came from rather than claiming to be a
 release. Pass `-PappVersion=v1.2.3` (or set `APP_VERSION`) to override, which is
@@ -469,6 +568,78 @@ keytool -genkeypair -v -keystore keystore.jks -keyalg RSA -keysize 2048 \
 Keep the `.jks` and its passwords safe — once an app is published, updates
 must be signed with the **same** key.
 
+### iOS, and the AltStore source
+
+`.github/workflows/ios-release_ci.yml` fires on the same tags, takes its matrix
+from the same [`app-variants.yaml`](app-variants.yaml), and attaches
+`container-app-<variant>-<tag>-ios.ipa` and its dSYMs to the same release.
+
+It then publishes an **AltStore source** to GitHub Pages:
+
+```
+https://<owner>.github.io/<repo>/source.json
+```
+
+Add that URL in AltStore and each variant appears as an app to install. The
+source is a pure function of `app-variants.yaml` plus the release — the names,
+bundle ids, tint colours and icons all come from the variants — so adding a
+variant adds an app to the source with nothing else to edit. Each release
+*appends* its version rather than replacing the list, so anyone on an older build
+can still install what they have.
+
+Two things to know:
+
+- **GitHub Pages has to be enabled once, by hand**: Settings → Pages → Source:
+  GitHub Actions. A workflow cannot do it, and the publish step fails until it is.
+- **No secrets are needed.** If certificate or App Store Connect secrets are
+  present the workflow fails loudly rather than quietly changing what it
+  produces, because a signed path has to be a deliberate edit.
+
+The version arithmetic is shared, with one exception: `CFBundleVersion` takes
+Android's `versionCode` unchanged, so the ordering rule and its ceiling transfer
+exactly, but `CFBundleShortVersionString` must be one to three integers — so
+`versionNameSuffix` lives in a custom `ContainerVersionName` key and in the
+artifact name instead. `v1.2.3` gives `1.2.3` / `10203` on both platforms.
+
+**AltStore PAL** — the EU alternative app *marketplace* — is a different route,
+and not what this is: it needs Developer Program membership, the EU Alternative
+Terms Addendum, Apple notarization of every build and an
+alternative-distribution certificate. See [`ios/README.md`](ios/README.md).
+
+## Platform differences
+
+Both apps are built from one `app-variants.yaml` and behave the same wherever
+they can. This is the list of places where they cannot, so that nothing here is a
+surprise later.
+
+| Android | iOS |
+|---|---|
+| Location is gated by the asking origin, so an embedded third-party frame cannot borrow the anchored site's permission. | **No such gate.** `WKWebView` answers the page itself and never says which origin asked. The build-level `allowLocation` gate still holds, and is the stronger half. |
+| `allowUnverifiedSsl` is one switch. | Two halves, both required: a narrow ATS exception for the variant's own host (or the app is never asked) *and* the app accepting the certificate. ATS relaxes TLS versions and ciphers; it cannot accept an invalid certificate. |
+| A bad certificate on any host inside the domain is waived. | The trust challenge may not be delivered for a cross-origin *subresource*, so a broken certificate on a third-party asset can still fail with the switch on. |
+| `clearSslPreferences()` clears remembered per-host decisions. | None are remembered, so there is nothing to clear; the toggle only drops cached responses. |
+| `screenMode: navigationBar` and `systemBars` keep the navigation bar. | There is no navigation bar. Both are reinterpreted around the home indicator, which can be dimmed but never hidden. |
+| `statusBar` and `systemBars` keep the top bar. | iOS force-hides the status bar on an **iPhone in landscape**, whatever the mode says. This affects `gasoline` in ordinary use. |
+| A hidden bar can be swiped in for a moment. | So it can, but the same gesture pulls Control Centre, so in `fullscreen` the clock is genuinely harder to reach. |
+| `barColor` paints the system bars. | There is no bar background to set; the app paints its own view behind the safe area. The bar's *contents* still follow the same 0.179 luminance threshold. |
+| Back navigates history, then stays in the container. | No back button, and no way for an app to background itself. History is the edge swipe; nothing stands in for the second half. |
+| `Toast` messages, which can outlive the app. | An in-app banner, which cannot. |
+| No permission purpose strings needed. | iOS terminates an app that asks for location without one — hence `locationReason`. A variant pinned to a bare host name also trips the Local Network prompt. |
+| `versionNameSuffix` is part of the version name. | `CFBundleShortVersionString` must be one to three integers, so the suffix lives in `ContainerVersionName` and the artifact name. |
+| One keystore signs everything; an `applicationId` needs no registration. | Each bundle id is an App ID to register once signing is introduced. AltStore's on-device re-signing sidesteps it for now. |
+| An unsigned APK can be signed by anyone with `apksigner`. | An unsigned `.ipa` needs an Apple-issued identity, which AltStore supplies on the user's own device. There is no offline equivalent. |
+| Adaptive icon, with a `<monochrome>` layer available. | One square image the system masks itself. The nearest analogue of the monochrome layer is the iOS 18 tinted appearance. |
+| R8 minification and resource shrinking. | No equivalent; Swift only dead-strips. Larger artifacts, no behavioural difference. |
+| Lock Task / screen pinning via MDM. | Guided Access, or Single App Mode via a supervised device and an MDM. |
+
+Two of these are worth calling out as *choices* rather than limits. The location
+gate could be restored by shimming `navigator.geolocation` with injected
+JavaScript; it was judged not worth reimplementing the W3C API for a check that a
+script-created frame could still escape. And off-domain *sub-frames* on iOS are
+blocked but deliberately not handed to the browser even in a variant with
+`allowExternalNavigation: true` — being thrown out of the app because an advert
+iframe loaded would be worse than Android's plain refusal.
+
 ## Notes on "kiosk"
 
 This app is a **single-purpose, navigation-locked container**. It does not by
@@ -479,19 +650,30 @@ with your MDM and add this app to the lock-task allowlist, or use screen
 pinning; the app is already structured to behave well in that mode (it stays in
 the container on Back instead of exiting).
 
+The iOS counterpart is **Guided Access** (Settings → Accessibility, turned on by
+the person holding the device) or, for a fleet, **Single App Mode** — or
+Autonomous Single App Mode — pushed by an MDM to a supervised device. Neither is
+something the app itself can request, exactly as on Android.
+
 ## Project layout
+
+The repository root holds what both platforms read; each platform's build lives
+in its own directory.
 
 ```
 app-variants.yaml        Which apps to build: name, symbol, kiosk config, behaviour
 app-icons/               Hand-drawn launcher symbols referenced by `icon.vector`
-buildSrc/src/main/kotlin/
+sample/kiosk.json        Example of the remote configuration file
+
+android/                 The Gradle build
+android/buildSrc/src/main/kotlin/
   AppVariants.kt         Parses & validates app-variants.yaml
   AppVersion.kt          Derives versionName / versionCode from the git tag
   ScreenModes.kt         The screen-mode names the build accepts
   LauncherGlyphs.kt      The built-in launcher symbols
   GenerateLauncherIconsTask.kt  Writes each variant's icon resources
   GenerateVariantManifestTask.kt  Writes the manifest entries only some variants get
-app/src/main/java/de/davidgrieser/container/
+android/app/src/main/java/de/davidgrieser/container/
   MainActivity.kt        UI: WebView, pull-to-refresh, FAB, menu sheet, admin & PIN dialogs
   ScreenMode.kt          Which system bars each screen mode keeps on screen
   SystemBarColors.kt     What those bars are painted in, light mode and dark
@@ -502,4 +684,28 @@ app/src/main/java/de/davidgrieser/container/
   Prefs.kt               Persisted state (PIN hash, config URL, screen mode, cache, selection)
   PinManager.kt          Salted, iterated PIN hashing & verification
   IconLoader.kt          Tiny dependency-free menu-icon loader
+
+ios/                     The Xcode project, generated from app-variants.yaml
+ios/project.yml          How the apps are built (hand-written)
+ios/tools/               The generator: parses the YAML, writes targets, draws icons
+ios/ContainerKit/Sources/ContainerKit/
+  ContainerApp.swift     Entry point; each variant's target is one call into it
+  Core/DomainRules.swift       Host / domain matching rules
+  Core/NavigationPolicy.swift  What happens to a navigation, as a pure function
+  Core/ConfigParser.swift      Parses the remote JSON
+  Core/KioskPathResolver.swift Which page opens, and what the menu offers
+  Core/PinHasher.swift         The Android hashing scheme, ported exactly
+  Core/ScreenMode.swift        The four modes, reinterpreted for iOS
+  Core/BarColor.swift          Bar colours and the icon-contrast threshold
+  Core/VariantConfig.swift     What the generator fills in per variant
+  Data/…                       Prefs, keychain, HTTP, config, icons, TLS, location
+  UI/KioskViewController.swift The whole screen: web view, button, dialogs
+  UI/KioskWebView.swift        Enforces the domain lock and the TLS policy
+  UI/ScreenModePolicy.swift    Which bars stay, and what the strip is painted
+ios/Tests/ContainerKitTests/   Tests for the pure core
+
+Shared by both builds:
+app-variants.schema.json The normative key sets, types, enums and defaults
+app-icons/glyphs.yaml    The built-in launcher symbols, as SVG path data
+variants-testdata/       Accept/reject cases both parsers are held to
 ```

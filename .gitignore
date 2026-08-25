@@ -15,5 +15,17 @@ captures/
 .externalNativeBuild/
 .cxx/
 
+# iOS (see ios/.gitignore for the rest)
+ios/Generated/
+ios/*.xcodeproj
+ios/signing.local.xcconfig
+*.ipa
+*.xcarchive
+DerivedData/
+
+# Python (the iOS project generator)
+__pycache__/
+*.pyc
+
 # OS
 .DS_Store

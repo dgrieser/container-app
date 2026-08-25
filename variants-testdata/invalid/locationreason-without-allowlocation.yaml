@@ -1,0 +1,6 @@
+# expect: a reason for a position the build never asks for
+variants:
+  - id: a
+    name: A
+    configUrl: https://example.com/kiosk.json
+    locationReason: A shows what is near you.

@@ -1,0 +1,5 @@
+# expect: name must not contain characters XML would escape
+variants:
+  - id: a
+    name: A & B
+    configUrl: https://example.com/kiosk.json

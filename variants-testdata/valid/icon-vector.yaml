@@ -1,0 +1,8 @@
+# expect: a checked-in drawable instead of a glyph, so no tint
+variants:
+  - id: a
+    name: A
+    configUrl: https://example.com/kiosk.json
+    icon:
+      vector: app-icons/gasoline.xml
+      background: "#22303F"

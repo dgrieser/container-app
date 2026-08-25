@@ -1,0 +1,6 @@
+# expect: unknown screenMode
+variants:
+  - id: a
+    name: A
+    configUrl: https://example.com/kiosk.json
+    screenMode: cinema

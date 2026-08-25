@@ -1,0 +1,6 @@
+# expect: allowLocation must be true or false
+variants:
+  - id: a
+    name: A
+    configUrl: https://example.com/kiosk.json
+    allowLocation: when asked

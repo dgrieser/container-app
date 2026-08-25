@@ -1,0 +1,302 @@
+name: iOS Release CI
+
+# Mirrors the Android workflow: pushed tag, matrix from the same app-variants.yaml,
+# one artifact per variant attached to the release. What differs is the end of it
+# -- the apps are distributed through an AltStore source published from this
+# repository, so the last job writes that source rather than stopping at the
+# release assets.
+on:
+  push:
+    tags:
+      - "*"
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+# A release publishes the source; two releases at once must not race for it.
+concurrency:
+  group: ios-release
+  cancel-in-progress: false
+
+jobs:
+  variants:
+    name: Read app variants
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.read.outputs.matrix }}
+    steps:
+      - name: Checkout project
+        uses: actions/checkout@v4.2.2
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Read app-variants.yaml
+        id: read
+        # The same script the Android workflow uses; iOS ignores `gradleName`.
+        run: |
+          pip install --quiet pyyaml
+          matrix="$(python3 .github/scripts/list_variants.py)"
+          echo "Building variants: $matrix"
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+
+  icons:
+    name: Draw the app icons
+    runs-on: ubuntu-latest
+    # Deliberately on Linux: `pathData` is SVG path data, so nothing about an app
+    # icon needs a Mac. Rendering here also keeps cairo off the macOS runner,
+    # which bills at ten times the rate.
+    steps:
+      - name: Checkout project
+        uses: actions/checkout@v4.2.2
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install the generator's dependencies
+        run: pip install --quiet -r ios/tools/requirements.txt
+
+      - name: Render every variant's .appiconset
+        run: python3 ios/tools/generate.py --only-icons --app-version "${{ github.ref_name }}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ios-appicons
+          path: ios/Generated/Variants/*/Assets.xcassets
+          if-no-files-found: error
+
+  build:
+    name: Build & Release (${{ matrix.variant.name }})
+    needs: [variants, icons]
+    # macos-15 for its Xcode 16, unpinned on purpose: `brew install xcodegen`
+    # gets the current XcodeGen, which writes the Xcode 16 project format, and an
+    # older Xcode cannot read it. The language version is pinned in
+    # ios/Config/Base.xcconfig instead.
+    runs-on: macos-15
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: ${{ fromJson(needs.variants.outputs.matrix) }}
+    steps:
+      - name: Checkout project
+        uses: actions/checkout@v4.2.2
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Record the toolchain
+        run: |
+          xcodebuild -version
+          xcodegen --version
+
+      # A standalone Python: the runner's own is Homebrew's, which is PEP 668
+      # externally-managed and refuses a plain `pip install`.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install the generator's dependencies
+        # Only PyYAML: the icons arrive as an artifact, so cairo is never needed
+        # on this runner.
+        run: pip install --quiet pyyaml
+
+      - name: Fetch the icons drawn on Linux
+        uses: actions/download-artifact@v4
+        with:
+          name: ios-appicons
+          path: ios/Generated/Variants
+
+      - name: Generate the project
+        # --skip-icons because they arrived as an artifact, which is why cairo is
+        # not installed on this runner. The generator leaves an existing asset
+        # catalogue alone, so the downloaded icons survive into the build.
+        working-directory: ios
+        run: |
+          python3 tools/generate.py --skip-icons --app-version "${{ github.ref_name }}"
+          xcodegen generate --spec project.yml --project .
+
+      - name: Decide how this build is signed
+        id: signing
+        # `secrets` cannot be used in a job-level `if`, so the mode is worked out
+        # here and the steps below branch on it.
+        env:
+          ASC_KEY: ${{ secrets.APPSTORE_API_PRIVATE_KEY }}
+          CERT: ${{ secrets.IOS_DIST_CERT_P12_BASE64 }}
+        run: |
+          if   [ -n "$ASC_KEY" ]; then mode=cloud
+          elif [ -n "$CERT"    ]; then mode=manual
+          else                         mode=unsigned
+          fi
+          echo "Signing mode: $mode"
+          echo "mode=$mode" >> "$GITHUB_OUTPUT"
+
+      - name: Build unsigned (no Apple account needed)
+        id: unsigned
+        if: steps.signing.outputs.mode == 'unsigned'
+        working-directory: ios
+        # This is the intended path, not a fallback: an AltStore source is
+        # installed by AltStore re-signing the app on the device with the user's
+        # own Apple ID, so the asset it points at is meant to be unsigned.
+        #
+        # `build` rather than `archive`: archiving with signing disabled is
+        # unreliable across Xcode versions, and an unsigned archive cannot be
+        # -exportArchive'd anyway, so the .ipa is packaged by hand.
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project Container.xcodeproj \
+            -scheme "${{ matrix.variant.id }}" \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build/dd \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGN_ENTITLEMENTS=""
+
+          products="build/dd/Build/Products/Release-iphoneos"
+          mkdir -p build/out/Payload
+          cp -R "$products/${{ matrix.variant.id }}.app" build/out/Payload/
+          (cd build/out && zip -qry \
+            "../container-app-${{ matrix.variant.id }}-${{ github.ref_name }}-ios.ipa" Payload)
+
+          # Without the dSYMs a crash report from an installed build cannot be
+          # symbolicated, and they are gone once the runner is reclaimed. Their
+          # absence is not worth failing a release over, though, so the upload
+          # step below is gated on this.
+          dsyms="container-app-${{ matrix.variant.id }}-${{ github.ref_name }}-ios-dSYMs.zip"
+          if compgen -G "$products/*.dSYM" > /dev/null; then
+            (cd "$products" && zip -qry "$GITHUB_WORKSPACE/ios/build/$dsyms" *.dSYM)
+            echo "dsyms=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::No dSYMs were produced; crash reports will not symbolicate."
+            echo "dsyms=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Archive and export (signed)
+        if: steps.signing.outputs.mode != 'unsigned'
+        working-directory: ios
+        env:
+          MODE: ${{ steps.signing.outputs.mode }}
+        run: |
+          echo "::error::Signed builds are not wired up yet: this repository " \
+               "distributes through an AltStore source, which installs unsigned " \
+               "apps re-signed on the device. Remove the signing secrets, or " \
+               "implement the $MODE path in this workflow."
+          exit 1
+
+      - name: Attach the app to the release
+        uses: svenstaro/upload-release-action@2.11.1
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: ios/build/container-app-${{ matrix.variant.id }}-${{ github.ref_name }}-ios.ipa
+          asset_name: container-app-${{ matrix.variant.id }}-${{ github.ref_name }}-ios.ipa
+          tag: ${{ github.ref }}
+          overwrite: true
+
+      - name: Attach the symbols to the release
+        if: steps.unsigned.outputs.dsyms == 'true'
+        uses: svenstaro/upload-release-action@2.11.1
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: ios/build/container-app-${{ matrix.variant.id }}-${{ github.ref_name }}-ios-dSYMs.zip
+          asset_name: container-app-${{ matrix.variant.id }}-${{ github.ref_name }}-ios-dSYMs.zip
+          tag: ${{ github.ref }}
+          overwrite: true
+
+      - name: Keep the app for the source job
+        uses: actions/upload-artifact@v4
+        with:
+          name: ipa-${{ matrix.variant.id }}
+          path: ios/build/*.ipa
+          if-no-files-found: error
+
+  altstore:
+    name: Publish the AltStore source
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.pages.outputs.page_url }}
+    steps:
+      - name: Checkout project
+        uses: actions/checkout@v4.2.2
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install the generator's dependencies
+        run: pip install --quiet -r ios/tools/requirements.txt
+
+      - name: Collect the built apps
+        uses: actions/download-artifact@v4
+        with:
+          pattern: ipa-*
+          merge-multiple: true
+          path: build/ipa
+
+      - name: Fetch the source already published
+        # A release appends its version rather than replacing the list, so anyone
+        # on an older build can still install what they have. Nothing published
+        # yet is the normal case for the first release.
+        run: |
+          mkdir -p published
+          url="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/source.json"
+          if curl -fsSL "$url" -o published/source.json; then
+            echo "Merging into the source at $url"
+          else
+            echo "No source published yet at $url; this is the first release."
+          fi
+
+      - name: Build the source
+        env:
+          # From the tagged commit, not the clock, so a re-run of the same release
+          # produces the same document.
+          COMMIT_TIMESTAMP: ${{ github.event.head_commit.timestamp }}
+        run: |
+          export RELEASE_DATE="${COMMIT_TIMESTAMP:0:10}"
+          python3 ios/tools/make_source.py \
+            --app-version "${{ github.ref_name }}" \
+            --artifacts build/ipa \
+            --repository "${{ github.repository }}" \
+            --site-url "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}" \
+            --previous published/source.json \
+            --out site
+
+      - name: Write a landing page
+        run: |
+          url="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/source.json"
+          cat > site/index.html <<HTML
+          <!doctype html>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width,initial-scale=1">
+          <title>Container Apps</title>
+          <style>
+            body { font: 16px/1.6 -apple-system, system-ui, sans-serif;
+                   max-width: 34rem; margin: 4rem auto; padding: 0 1.25rem; }
+            code { background: #f3f3f3; padding: .15em .4em; border-radius: 4px;
+                   word-break: break-all; }
+          </style>
+          <h1>Container Apps</h1>
+          <p>An AltStore source for the kiosk container apps built from
+             <a href="https://github.com/${{ github.repository }}">${{ github.repository }}</a>.</p>
+          <p>Add this URL in AltStore:</p>
+          <p><code>$url</code></p>
+          <p><a href="altstore://source?url=$url">Open in AltStore</a></p>
+          HTML
+
+      - name: Upload the site
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - name: Publish to GitHub Pages
+        id: pages
+        # Pages has to be enabled once, by hand, in the repository settings
+        # (Settings -> Pages -> Source: GitHub Actions). A workflow cannot do it.
+        uses: actions/deploy-pages@v4
