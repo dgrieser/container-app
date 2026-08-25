@@ -72,7 +72,11 @@ jobs:
   build:
     name: Build & Release (${{ matrix.variant.name }})
     needs: [variants, icons]
-    runs-on: macos-14
+    # macos-15 for its Xcode 16, unpinned on purpose: `brew install xcodegen`
+    # gets the current XcodeGen, which writes the Xcode 16 project format, and an
+    # older Xcode cannot read it. The language version is pinned in
+    # ios/Config/Base.xcconfig instead.
+    runs-on: macos-15
     strategy:
       fail-fast: false
       matrix:
@@ -81,12 +85,13 @@ jobs:
       - name: Checkout project
         uses: actions/checkout@v4.2.2
 
-      - uses: maxim-lobanov/setup-xcode@v1
-        with:
-          xcode-version: "15.4"
-
       - name: Install XcodeGen
         run: brew install xcodegen
+
+      - name: Record the toolchain
+        run: |
+          xcodebuild -version
+          xcodegen --version
 
       # A standalone Python: the runner's own is Homebrew's, which is PEP 668
       # externally-managed and refuses a plain `pip install`.

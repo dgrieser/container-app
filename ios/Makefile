@@ -13,7 +13,9 @@
 PYTHON ?= python3
 PROJECT := Container.xcodeproj
 SCHEME ?= container
-SIMULATOR ?= platform=iOS Simulator,name=iPhone 15
+# Discovered, not written down: which iPhones an Xcode carries changes with
+# the version. Expanded only where it is used, so it never runs on Linux.
+SIMULATOR ?= platform=iOS Simulator,name=$(shell $(PYTHON) tools/pick_simulator.py)
 VERSION_ARG := $(if $(APP_VERSION),--app-version $(APP_VERSION),)
 
 # SKIP_ICONS=1 generates without drawing the app icons, so CairoSVG and the cairo

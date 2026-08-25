@@ -50,6 +50,18 @@ make open           # …and open it
 make test           # the generator's tests, then ContainerKit's in a simulator
 ```
 
+**Xcode 16 or newer**, because current XcodeGen writes the Xcode 16 project
+format (`objectVersion 77`) and an older Xcode refuses to open it. Keep the two
+in step: pinning one and not the other is the failure this warns about. The
+*language* version is pinned separately, in
+[`Config/Base.xcconfig`](Config/Base.xcconfig), so a newer Xcode cannot quietly
+change how the code compiles.
+
+`make test` finds a simulator with
+[`tools/pick_simulator.py`](tools/pick_simulator.py) rather than naming one,
+since which iPhones an Xcode carries changes with the version; `SIMULATOR=…`
+overrides it.
+
 There is one scheme per variant, named after its `id`, so
 `xcodebuild -scheme podcaster` is the direct analogue of
 `./gradlew assemblePodcasterRelease`.

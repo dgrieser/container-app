@@ -94,17 +94,28 @@ jobs:
   ios-compiles:
     name: iOS builds (simulator, no signing)
     needs: icons
-    runs-on: macos-14
+    # macos-15 for its Xcode 16, and the Xcode is deliberately *not* pinned to an
+    # older one: `brew install xcodegen` gets the current XcodeGen, which writes
+    # the Xcode 16 project format (objectVersion 77), and an older Xcode cannot
+    # read it. Pinning one side and not the other is what broke this.
+    #
+    # The language version is pinned instead, in ios/Config/Base.xcconfig
+    # (SWIFT_VERSION), so a new Xcode cannot quietly change how the code is
+    # compiled.
+    runs-on: macos-15
     steps:
       - name: Checkout project
         uses: actions/checkout@v4.2.2
 
-      - uses: maxim-lobanov/setup-xcode@v1
-        with:
-          xcode-version: "15.4"
-
       - name: Install XcodeGen
         run: brew install xcodegen
+
+      - name: Record the toolchain
+        # Both halves in the log, because their pairing is the thing that has to
+        # hold.
+        run: |
+          xcodebuild -version
+          xcodegen --version
 
       - uses: actions/setup-python@v5
         with:
@@ -128,6 +139,17 @@ jobs:
         working-directory: ios
         run: make project SKIP_ICONS=1
 
+      - name: Pick an available simulator
+        id: simulator
+        # Discovered rather than named: which iPhones a runner image carries
+        # changes with the image, and a `test` destination has to be a concrete
+        # one (unlike `build`, which takes a generic destination). The Makefile
+        # calls the same script.
+        run: |
+          name="$(python3 ios/tools/pick_simulator.py)"
+          echo "Using simulator: $name"
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+
       # A simulator build needs no signing material at all, which is what makes
       # this the cheapest possible check that the Swift actually compiles.
       - name: Build and test
@@ -136,7 +158,7 @@ jobs:
           xcodebuild test \
             -project Container.xcodeproj \
             -scheme container \
-            -destination 'platform=iOS Simulator,name=iPhone 15'
+            -destination 'platform=iOS Simulator,name=${{ steps.simulator.outputs.name }}'
 
       # Every variant compiles, not only the default one: a per-variant Info.plist
       # or asset catalogue can be wrong on its own.
@@ -148,6 +170,6 @@ jobs:
             xcodebuild build \
               -project Container.xcodeproj \
               -scheme "$scheme" \
-              -destination 'platform=iOS Simulator,name=iPhone 15'
+              -destination 'platform=iOS Simulator,name=${{ steps.simulator.outputs.name }}'
             echo "::endgroup::"
           done
