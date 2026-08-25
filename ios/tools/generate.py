@@ -58,11 +58,8 @@ def generate(
     declared = variants_module.load(paths.VARIANTS_FILE, glyphs=glyphs)
     resolved = version_module.resolve(app_version, paths.REPO_ROOT)
 
-    if clean and not only_icons and paths.GENERATED.exists():
-        # The generated tree is the only place a removed variant could linger, and
-        # a stale target directory is a target XcodeGen would happily keep
-        # building.
-        shutil.rmtree(paths.GENERATED)
+    if clean and not only_icons:
+        _remove_stale_targets(declared)
 
     if not only_icons:
         _write(paths.VARIANTS_SPEC, xcodegen_spec.dumps(declared))
@@ -86,6 +83,27 @@ def generate(
             icons.write(variant, glyphs, paths.REPO_ROOT, target)
 
     return declared
+
+
+def _remove_stale_targets(declared: list[variants_module.Variant]) -> None:
+    """Deletes generated targets for variants that no longer exist.
+
+    The generated tree is the only place a removed variant could linger, and a
+    stale target directory is a target XcodeGen would happily keep building.
+
+    Only the departed are removed, deliberately. Wiping the whole tree would be
+    simpler, but it would also delete the asset catalogues -- which is exactly
+    what `--skip-icons` is asking not to touch, and how a release could ship an
+    app with no icon: CI renders the icons on a Linux runner, hands them to the
+    Mac, and then generates with `--skip-icons`. Everything this generator writes
+    is overwritten in place, so nothing else needs deleting first.
+    """
+    if not paths.VARIANT_DIRS.is_dir():
+        return
+    keep = {variant.id for variant in declared}
+    for target in paths.VARIANT_DIRS.iterdir():
+        if target.is_dir() and target.name not in keep:
+            shutil.rmtree(target)
 
 
 def _variant_xcconfig(

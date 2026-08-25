@@ -59,6 +59,33 @@ class CliTest(unittest.TestCase):
         result = self._run("--skip-icons", "--only-icons")
         self.assertNotEqual(0, result.returncode)
 
+    def test_skip_icons_leaves_icons_that_are_already_there(self) -> None:
+        """The regression that would have shipped apps with no icon.
+
+        CI draws the icons on a Linux runner, hands them to the macOS one as an
+        artifact, and then generates with --skip-icons. A generator that cleared
+        its whole output tree first would delete them, and the only symptom would
+        be a published .ipa with a blank icon.
+        """
+        self.assertEqual(0, self._run("--app-version", "v1.2.3").returncode)
+        icons = {
+            variant.id: paths.variant_dir(variant.id) / "Assets.xcassets"
+            / "AppIcon.appiconset" / "icon-1024.png"
+            for variant in variants.load()
+        }
+        before = {}
+        for variant_id, icon in icons.items():
+            self.assertTrue(icon.is_file(), f"{variant_id}: nothing drawn to begin with")
+            before[variant_id] = icon.read_bytes()
+
+        result = self._run("--skip-icons", "--app-version", "v1.2.3")
+        self.assertEqual(0, result.returncode, result.stderr)
+
+        for variant_id, icon in icons.items():
+            with self.subTest(variant=variant_id):
+                self.assertTrue(icon.is_file(), "the icon was deleted")
+                self.assertEqual(before[variant_id], icon.read_bytes(), "the icon changed")
+
     def test_a_removed_variant_leaves_no_stale_target(self) -> None:
         # The generated tree is the only place a deleted variant could linger, and
         # a leftover directory is a target XcodeGen would happily keep building.

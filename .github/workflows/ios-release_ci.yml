@@ -30,11 +30,15 @@ jobs:
       - name: Checkout project
         uses: actions/checkout@v4.2.2
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
       - name: Read app-variants.yaml
         id: read
         # The same script the Android workflow uses; iOS ignores `gradleName`.
         run: |
-          python3 -c "import yaml" 2>/dev/null || pip3 install --quiet pyyaml
+          pip install --quiet pyyaml
           matrix="$(python3 .github/scripts/list_variants.py)"
           echo "Building variants: $matrix"
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
@@ -49,8 +53,12 @@ jobs:
       - name: Checkout project
         uses: actions/checkout@v4.2.2
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
       - name: Install the generator's dependencies
-        run: pip3 install --quiet -r ios/tools/requirements.txt
+        run: pip install --quiet -r ios/tools/requirements.txt
 
       - name: Render every variant's .appiconset
         run: python3 ios/tools/generate.py --only-icons --app-version "${{ github.ref_name }}"
@@ -80,8 +88,16 @@ jobs:
       - name: Install XcodeGen
         run: brew install xcodegen
 
+      # A standalone Python: the runner's own is Homebrew's, which is PEP 668
+      # externally-managed and refuses a plain `pip install`.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
       - name: Install the generator's dependencies
-        run: pip3 install --quiet pyyaml
+        # Only PyYAML: the icons arrive as an artifact, so cairo is never needed
+        # on this runner.
+        run: pip install --quiet pyyaml
 
       - name: Fetch the icons drawn on Linux
         uses: actions/download-artifact@v4
@@ -91,7 +107,8 @@ jobs:
 
       - name: Generate the project
         # --skip-icons because they arrived as an artifact, which is why cairo is
-        # not installed on this runner.
+        # not installed on this runner. The generator leaves an existing asset
+        # catalogue alone, so the downloaded icons survive into the build.
         working-directory: ios
         run: |
           python3 tools/generate.py --skip-icons --app-version "${{ github.ref_name }}"
@@ -204,8 +221,12 @@ jobs:
       - name: Checkout project
         uses: actions/checkout@v4.2.2
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
       - name: Install the generator's dependencies
-        run: pip3 install --quiet -r ios/tools/requirements.txt
+        run: pip install --quiet -r ios/tools/requirements.txt
 
       - name: Collect the built apps
         uses: actions/download-artifact@v4

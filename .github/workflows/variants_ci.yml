@@ -23,8 +23,16 @@ jobs:
           distribution: "temurin"
           cache: gradle
 
+      # A standalone Python rather than the runner's own. The macOS runner's is
+      # Homebrew's, which is PEP 668 externally-managed and refuses a plain
+      # `pip install`; pinning one here keeps both platforms alike and immune to
+      # the image changing underneath.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
       - name: Install the generator's dependencies
-        run: pip3 install --quiet -r ios/tools/requirements.txt
+        run: pip install --quiet -r ios/tools/requirements.txt
 
       # The Kotlin side: the strict parser, the schema-sync test and the shared
       # accept/reject corpus. No Android SDK needed, so it runs here.
@@ -56,8 +64,36 @@ jobs:
       - name: The release matrix still reads
         run: python3 .github/scripts/list_variants.py
 
+  icons:
+    name: Draw the app icons
+    runs-on: ubuntu-latest
+    # On Linux, as in the release workflow: `pathData` is SVG path data, so
+    # nothing about an app icon needs a Mac. It also keeps cairo off the macOS
+    # runner, where CairoSVG needs DYLD_FALLBACK_LIBRARY_PATH pointed at
+    # /opt/homebrew/lib to find its dylib at all.
+    steps:
+      - name: Checkout project
+        uses: actions/checkout@v4.2.2
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install the generator's dependencies
+        run: pip install --quiet -r ios/tools/requirements.txt
+
+      - name: Render every variant's .appiconset
+        run: python3 ios/tools/generate.py --only-icons
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pr-appicons
+          path: ios/Generated/Variants/*/Assets.xcassets
+          if-no-files-found: error
+
   ios-compiles:
     name: iOS builds (simulator, no signing)
+    needs: icons
     runs-on: macos-14
     steps:
       - name: Checkout project
@@ -70,14 +106,27 @@ jobs:
       - name: Install XcodeGen
         run: brew install xcodegen
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
       - name: Install the generator's dependencies
-        run: |
-          brew install cairo
-          pip3 install --quiet -r ios/tools/requirements.txt
+        # Only PyYAML: the icons arrive as an artifact, so CairoSVG and cairo are
+        # not needed on this runner.
+        run: pip install --quiet pyyaml
+
+      - name: Fetch the icons drawn on Linux
+        uses: actions/download-artifact@v4
+        with:
+          name: pr-appicons
+          path: ios/Generated/Variants
 
       - name: Generate the project
+        # SKIP_ICONS because they are already here; the generator leaves an
+        # existing asset catalogue alone, so they survive into the build and the
+        # per-variant catalogues are genuinely compiled.
         working-directory: ios
-        run: make project
+        run: make project SKIP_ICONS=1
 
       # A simulator build needs no signing material at all, which is what makes
       # this the cheapest possible check that the Swift actually compiles.

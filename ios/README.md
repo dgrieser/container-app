@@ -77,8 +77,11 @@ an icon needs Xcode. `python3 -m unittest discover -s tests -t .` inside `tools/
 runs 80-odd tests over the parser, the version arithmetic, the plists, the icons
 and the generated Swift.
 
-`generate.py --skip-icons` produces a complete, openable project where CairoSVG
-is not installed; Xcode then warns about the missing image.
+`generate.py --skip-icons` (or `make project SKIP_ICONS=1`) produces a complete,
+openable project where CairoSVG is not installed; Xcode then warns about the
+missing image. It leaves any icons *already* on disk alone, which is how CI
+works: they are drawn on a Linux runner, handed to the Mac as an artifact, and
+compiled there.
 
 ## Adding a variant
 
