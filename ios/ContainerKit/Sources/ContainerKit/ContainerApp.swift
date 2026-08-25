@@ -10,7 +10,18 @@ import UIKit
 ///
 /// Everything else lives in this package, which is what lets a new source file
 /// arrive without regenerating the Xcode project.
-@MainActor
+///
+/// Deliberately **not** `@MainActor`. Top-level code in `main.swift` runs on the
+/// main thread, but in Swift 5 language mode it is not formally isolated to the
+/// main actor (that is SE-0343, Swift 6), so a `@MainActor` entry point here is a
+/// call the compiler refuses:
+///
+///     error: call to main actor-isolated static method 'main(variant:)'
+///            in a synchronous nonisolated context
+///
+/// The annotation bought nothing anyway: `UIApplicationMain` has to be called on
+/// the main thread, and that is exactly where the generated `main.swift` calls
+/// it from.
 public enum ContainerApp {
 
     /// Runs the app. Never returns, as `UIApplicationMain` never does.
