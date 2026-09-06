@@ -161,11 +161,22 @@ jobs:
             -destination 'platform=iOS Simulator,name=${{ steps.simulator.outputs.name }}'
 
       # Every variant compiles, not only the default one: a per-variant Info.plist
-      # or asset catalogue can be wrong on its own.
+      # or asset catalogue can be wrong on its own. The list is read from
+      # app-variants.yaml with the generator's own parser rather than written out
+      # here, so a variant added to that file is built without anyone having to
+      # remember this step; the default one is skipped because the step above
+      # already built and tested it.
       - name: Build the other variants
         working-directory: ios
         run: |
-          for scheme in podcaster gasoline; do
+          schemes="$(python3 -c "
+          import sys
+          sys.path.insert(0, 'tools')
+          import variants
+          print(' '.join(v.id for v in variants.load() if not v.is_default))
+          ")"
+          echo "Building: $schemes"
+          for scheme in $schemes; do
             echo "::group::$scheme"
             xcodebuild build \
               -project Container.xcodeproj \
