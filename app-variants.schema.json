@@ -73,6 +73,11 @@
           "default": true,
           "description": "false = no menu button; the app shows a single page, and the admin menu is reached by holding the bottom-right corner."
         },
+        "pullToRefresh": {
+          "type": "boolean",
+          "default": true,
+          "description": "false = a pull down from the top of the page no longer reloads it, for a page that reads a downward drag itself -- a map, a 3D scene, a canvas. Fixed per build; the admin menu's Reload is unaffected and stays the way to reload such a build."
+        },
         "screenMode": {
           "enum": ["fullscreen", "statusBar", "navigationBar", "systemBars"],
           "default": "fullscreen",

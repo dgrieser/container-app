@@ -48,6 +48,12 @@ data class AppVariant(
     /** When false, no hamburger button is shown and the app is single-page. */
     val showMenu: Boolean,
     /**
+     * When false, a pull down from the top of the page no longer reloads it —
+     * for a page that reads a downward drag itself. The admin menu's Reload is
+     * unaffected.
+     */
+    val pullToRefresh: Boolean,
+    /**
      * Which system bars stay visible over the page: one of [ScreenModes.names].
      * Only the starting point — the admin menu can change it per device.
      */
@@ -98,7 +104,7 @@ object AppVariants {
     val TOP_LEVEL_KEYS = setOf("applicationId", "variants")
     val VARIANT_KEYS = setOf(
         "id", "name", "applicationId", "versionNameSuffix", "configUrl",
-        "defaultKioskPath", "requirePin", "showMenu", "screenMode", "barColor",
+        "defaultKioskPath", "requirePin", "showMenu", "pullToRefresh", "screenMode", "barColor",
         "allowUnverifiedSsl", "allowExternalNavigation", "allowLocation",
         "locationReason", "default", "icon"
     )
@@ -113,6 +119,7 @@ object AppVariants {
 
     const val DEFAULT_REQUIRE_PIN = true
     const val DEFAULT_SHOW_MENU = true
+    const val DEFAULT_PULL_TO_REFRESH = true
     const val DEFAULT_ALLOW_UNVERIFIED_SSL = false
     const val DEFAULT_ALLOW_EXTERNAL_NAVIGATION = false
     const val DEFAULT_ALLOW_LOCATION = false
@@ -225,6 +232,7 @@ object AppVariants {
             defaultKioskPath = defaultKioskPath,
             requirePin = map.boolean("requirePin") ?: DEFAULT_REQUIRE_PIN,
             showMenu = map.boolean("showMenu") ?: DEFAULT_SHOW_MENU,
+            pullToRefresh = map.boolean("pullToRefresh") ?: DEFAULT_PULL_TO_REFRESH,
             screenMode = screenMode,
             barColor = parseBarColors(map["barColor"], "$where barColor", fileName),
             allowUnverifiedSsl = map.boolean("allowUnverifiedSsl") ?: DEFAULT_ALLOW_UNVERIFIED_SSL,

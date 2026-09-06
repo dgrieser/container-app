@@ -154,13 +154,18 @@ public final class KioskViewController: UIViewController {
 
         // Pull to refresh, the way browser apps do it, on the web view's own
         // scroll view. As on Android it only fires from the top of the page, so it
-        // never interferes with scrolling.
-        let refresh = UIRefreshControl()
-        refresh.addAction(
-            UIAction { [weak self] _ in self?.reloadCurrentPage() },
-            for: .valueChanged
-        )
-        webView.scrollView.refreshControl = refresh
+        // never interferes with scrolling. A variant whose page reads a downward
+        // drag itself declares `pullToRefresh: false` and gets no control at all,
+        // so the gesture stays the page's; the `endRefreshing()` calls elsewhere
+        // are written against the optional and simply do nothing then.
+        if variant.pullToRefresh {
+            let refresh = UIRefreshControl()
+            refresh.addAction(
+                UIAction { [weak self] _ in self?.reloadCurrentPage() },
+                for: .valueChanged
+            )
+            webView.scrollView.refreshControl = refresh
+        }
 
         // WKWebView reports progress on the main thread, which is where every
         // reader of it here lives.

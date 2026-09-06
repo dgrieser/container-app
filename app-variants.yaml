@@ -32,6 +32,12 @@
 #                      shows a single page and cannot be switched (the admin
 #                      menu is then reached by long-pressing the bottom-right
 #                      corner).
+#   pullToRefresh      optional (true). false = a pull down from the top of the
+#                      page no longer reloads it, and the gesture stays the
+#                      page's: what a map, a 3D scene or a canvas needs, since it
+#                      reads a downward drag itself. Fixed per build, like the
+#                      menu; the admin menu's "Reload configuration" is then the
+#                      way to reload such a build, and still works.
 #   screenMode         optional (fullscreen). Which of Android's own bars stay on
 #                      screen over the page:
 #                        fullscreen    — neither bar; the page owns the display.
@@ -157,14 +163,19 @@ variants:
   # as it should be, but the bare `github.io` above it counts as the parent
   # domain and would load. Nothing on that page links there, and off-domain links
   # are refused anyway (`allowExternalNavigation` is left at false), so it is
-  # written down rather than worked around. Its symbol is the site's own favicon
-  # redrawn as a vector drawable, so, like Gasoline's, it carries its own colours
-  # and takes no `tint`; the ground behind it is the page's own `theme-color`.
+  # written down rather than worked around. It is also the first build to turn
+  # `pullToRefresh` off: the page is dragged to turn the planet, and a drag that
+  # starts at the top of it is a drag like any other, so leaving pull-to-refresh
+  # on would have the container reload the page whenever someone tried to look
+  # over the north pole. Its symbol is the site's own favicon redrawn as a vector
+  # drawable, so, like Gasoline's, it carries its own colours and takes no
+  # `tint`; the ground behind it is the page's own `theme-color`.
   - id: livingplanet
     name: Living Planet 3D
     defaultKioskPath: https://dgrieser.github.io/living-planet-3d/
     requirePin: false
     showMenu: false
+    pullToRefresh: false
     versionNameSuffix: "-livingplanet"
     icon:
       vector: app-icons/livingplanet.xml

@@ -80,6 +80,14 @@ android {
                 )
                 buildConfigField("boolean", "REQUIRE_PIN", variant.requirePin.toString())
                 buildConfigField("boolean", "SHOW_MENU", variant.showMenu.toString())
+                // Whether a pull down from the top of the page reloads it. Off
+                // for a page that reads a downward drag itself; the admin menu's
+                // Reload still works. Fixed per build.
+                buildConfigField(
+                    "boolean",
+                    "PULL_TO_REFRESH",
+                    variant.pullToRefresh.toString()
+                )
                 // Which system bars this build starts out showing; the admin menu
                 // can change it per device.
                 buildConfigField("String", "SCREEN_MODE", javaStringLiteral(variant.screenMode))

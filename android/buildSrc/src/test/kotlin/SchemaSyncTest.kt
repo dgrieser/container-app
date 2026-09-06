@@ -59,6 +59,10 @@ class SchemaSyncTest {
         assertEquals(AppVariants.DEFAULT_REQUIRE_PIN, defaultOf(variant, "requirePin"))
         assertEquals(AppVariants.DEFAULT_SHOW_MENU, defaultOf(variant, "showMenu"))
         assertEquals(
+            AppVariants.DEFAULT_PULL_TO_REFRESH,
+            defaultOf(variant, "pullToRefresh")
+        )
+        assertEquals(
             AppVariants.DEFAULT_ALLOW_UNVERIFIED_SSL,
             defaultOf(variant, "allowUnverifiedSsl")
         )
