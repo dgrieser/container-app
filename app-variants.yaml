@@ -143,3 +143,29 @@ variants:
     icon:
       vector: app-icons/gasoline.xml
       background: "#22303F"
+
+  # A third single-page build, and the first pointed at a page this repository's
+  # owner publishes somewhere other than david-grieser.de: an interactive
+  # astronomy simulation on GitHub Pages. Its settings are Podcaster's — one
+  # pinned page, no menu, no PIN, no kiosk.json, and fullscreen, because a planet
+  # turning on the whole display is the point — minus the TLS bypass: unlike the
+  # Raspberry Pi, github.io presents a certificate every device already trusts,
+  # so `allowUnverifiedSsl` stays at its safe default and the admin switch starts
+  # off like everywhere else. It is also the first variant anchored to a host
+  # under a shared suffix, which the domain lock treats as a suffix match rather
+  # than a public-suffix one: another author's `elsewhere.github.io` is refused,
+  # as it should be, but the bare `github.io` above it counts as the parent
+  # domain and would load. Nothing on that page links there, and off-domain links
+  # are refused anyway (`allowExternalNavigation` is left at false), so it is
+  # written down rather than worked around. Its symbol is the site's own favicon
+  # redrawn as a vector drawable, so, like Gasoline's, it carries its own colours
+  # and takes no `tint`; the ground behind it is the page's own `theme-color`.
+  - id: livingplanet
+    name: Living Planet 3D
+    defaultKioskPath: https://dgrieser.github.io/living-planet-3d/
+    requirePin: false
+    showMenu: false
+    versionNameSuffix: "-livingplanet"
+    icon:
+      vector: app-icons/livingplanet.xml
+      background: "#060913"

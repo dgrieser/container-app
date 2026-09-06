@@ -73,6 +73,18 @@ class AndroidVectorTest(unittest.TestCase):
         group = next(root.iter(f"{namespace}g"))
         self.assertRegex(group.get("transform"), r"^translate\([^)]+\) scale\([^)]+\)$")
 
+    def test_every_checked_in_drawable_converts(self) -> None:
+        # The one above knows what gasoline.xml is made of; this one only insists
+        # that nothing in app-icons/ uses something the converter refuses, so a
+        # new piece of artwork cannot reach a home screen on Android while
+        # failing to draw at all on iOS.
+        drawables = sorted((paths.REPO_ROOT / "app-icons").glob("*.xml"))
+        self.assertTrue(drawables, "no drawables to convert")
+        for drawable in drawables:
+            with self.subTest(drawable=drawable.name):
+                root = ET.fromstring(androidvector.convert(drawable))
+                self.assertEqual("0 0 108 108", root.get("viewBox"))
+
     def test_evenodd_becomes_a_fill_rule(self) -> None:
         svg = androidvector.convert(paths.REPO_ROOT / "app-icons" / "gasoline.xml")
         self.assertIn('fill-rule="evenodd"', svg)

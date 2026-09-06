@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Launcher foreground for the `livingplanet` variant, referenced from
+  app-variants.yaml as `icon.vector`. A shaded planet crossed by a tilted
+  orbital ring — the site's own favicon, redrawn for this canvas.
+
+  Its favicon is a 64x64 SVG: a circle of radius 20 on centre, and an ellipse of
+  28x8 rotated -23 degrees, stroked 2 wide. Scaled by 33/29 (the ring's outer
+  edge, half its stroke included, reaches exactly the 33-unit radius of the
+  66-unit safe zone an adaptive-icon mask never clips) and centred on 54,54,
+  that becomes a planet of radius 22.8 and a ring whose middle measures
+  31.4x9.1. The ring is a touch wider than the scaled 2.28 — 3.2 units — because
+  a hairline that reads on a browser tab disappears on a home screen.
+
+  Two things the favicon does are impossible in a vector drawable, so both are
+  redrawn rather than dropped:
+
+  * Its planet is a radial gradient, light at 35%/35%. Here it is a linear one
+    along the same diagonal, from the same three stops, which puts the highlight
+    in the same corner; the converter in ios/tools/androidvector.py refuses a
+    radial gradient rather than approximating one behind your back.
+  * Its ring is a stroke. Strokes are refused for the same reason, so the ring
+    is the filled area between two concentric ellipses (`evenOdd`), each written
+    as a pair of arcs carrying the -23 degree tilt in the path data itself —
+    a group rotation being the third thing the converter will not translate.
+
+  The background the two sit on is not here but in app-variants.yaml
+  (`icon.background`), and is the site's own `theme-color`, #060913.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:pathData="M54,31.2a22.8,22.8 0 1,0 0,45.6a22.8,22.8 0 1,0 0,-45.6z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="38"
+                android:startY="38"
+                android:endX="73"
+                android:endY="73">
+                <item android:offset="0" android:color="#8FD3FF" />
+                <item android:offset="0.6" android:color="#2B6CB0" />
+                <item android:offset="1" android:color="#0B1A3A" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <path
+        android:fillColor="#9FD0FF"
+        android:fillAlpha="0.8"
+        android:fillType="evenOdd"
+        android:pathData="M84.377,41.106 A33,10.7 -23 1 1 23.623,66.894 A33,10.7 -23 1 1 84.377,41.106 Z
+                          M81.431,42.356 A29.8,7.5 -23 1 1 26.569,65.644 A29.8,7.5 -23 1 1 81.431,42.356 Z" />
+</vector>
