@@ -74,6 +74,7 @@ class DefaultsTest(unittest.TestCase):
         self.assertEqual("com.example.container.a", variant.application_id)
         self.assertTrue(variant.require_pin)
         self.assertTrue(variant.show_menu)
+        self.assertTrue(variant.pull_to_refresh)
         self.assertEqual("fullscreen", variant.screen_mode)
         self.assertFalse(variant.allow_unverified_ssl)
         self.assertFalse(variant.allow_external_navigation)

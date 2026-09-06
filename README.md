@@ -65,7 +65,10 @@ alone — the difference is written down rather than papered over: see
   already scrolled to the top, so it never interferes with scrolling. In
   full-screen mode, start the swipe just below the very top edge — a swipe from
   the edge itself is taken by the system to reveal the status bar. A screen mode
-  that keeps the status bar has no such edge to share.
+  that keeps the status bar has no such edge to share. A variant whose page reads
+  a downward drag itself — a map, a 3D scene, a canvas — turns the gesture off
+  with `pullToRefresh: false`, and the drag stays the page's; the admin menu's
+  *Reload configuration* then reloads such a build.
 - **Admin menu (PIN-protected).** An **Admin** entry in the menu asks for the
   PIN, then lets you:
   - set the **configuration URL** (which JSON file to read),
@@ -114,6 +117,7 @@ variants:
     defaultKioskPath: https://portal.david-grieser.de/   # pinned, so no configUrl
     requirePin: false        # no PIN at all
     showMenu: false          # single page, no hamburger button
+    pullToRefresh: false     # the page reads a downward drag itself
     screenMode: statusBar    # keep the clock and battery above the page
     barColor:                # …in a strip that matches the page, per system theme
       light: "#FAFAFA"
@@ -138,6 +142,7 @@ variants:
 | `defaultKioskPath` | no | Which page to open first (see below). Empty = first app in the `kiosk.json`. |
 | `requirePin` | no (`true`) | `false` = no PIN setup on first run and the admin menu opens without one. |
 | `showMenu` | no (`true`) | `false` = no hamburger button; the app shows a single page and cannot be switched. |
+| `pullToRefresh` | no (`true`) | `false` = a pull down from the top of the page no longer reloads it, so a page that reads a downward drag itself keeps the gesture. Fixed per build; the admin menu's *Reload configuration* still reloads the page. |
 | `screenMode` | no (`fullscreen`) | Which system bars stay over the page: `fullscreen` (neither), `statusBar` (top bar only), `navigationBar` (bottom bar only), `systemBars` (both). Only the starting point — changeable per device in the admin menu. iOS has no navigation bar, so the last two are reinterpreted around the home indicator. See [Screen modes](#screen-modes). |
 | `barColor.light` | no (`#FFFFFF`) | Colour of the bars `screenMode` keeps while the device is in light mode, `#RRGGBB` or `#AARRGGBB`. Fixed per build. |
 | `barColor.dark` | no (`#FFFFFF`) | The same for dark mode. |

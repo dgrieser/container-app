@@ -34,6 +34,11 @@ public struct VariantConfig: Equatable, Sendable {
     /// When false, no menu button is shown and the app is single-page.
     public let showMenu: Bool
 
+    /// When false, the web view carries no `UIRefreshControl`, so a pull down
+    /// from the top of the page belongs to the page rather than reloading it.
+    /// The admin menu's Reload is unaffected.
+    public let pullToRefresh: Bool
+
     /// Where this build starts; the admin menu can change it per device.
     public let screenMode: ScreenMode
 
@@ -67,6 +72,7 @@ public struct VariantConfig: Equatable, Sendable {
         defaultKioskPath: String,
         requirePin: Bool,
         showMenu: Bool,
+        pullToRefresh: Bool,
         screenMode: ScreenMode,
         barColorLight: BarColor,
         barColorDark: BarColor,
@@ -82,6 +88,7 @@ public struct VariantConfig: Equatable, Sendable {
         self.defaultKioskPath = defaultKioskPath
         self.requirePin = requirePin
         self.showMenu = showMenu
+        self.pullToRefresh = pullToRefresh
         self.screenMode = screenMode
         self.barColorLight = barColorLight
         self.barColorDark = barColorDark

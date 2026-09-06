@@ -69,6 +69,7 @@ class AppVariantsTest {
                 configUrl: https://example.com/portal.json
                 requirePin: false
                 showMenu: false
+                pullToRefresh: false
                 defaultKioskPath: /dashboard
             """
         )
@@ -78,6 +79,7 @@ class AppVariantsTest {
         assertEquals("Container", container.gradleName)
         assertTrue(container.requirePin)
         assertTrue(container.showMenu)
+        assertTrue(container.pullToRefresh)
         assertEquals(ScreenModes.DEFAULT, container.screenMode)
         assertEquals("#FFFFFF", container.barColor.light)
         assertEquals("#FFFFFF", container.barColor.dark)
@@ -91,6 +93,7 @@ class AppVariantsTest {
         assertEquals("de.davidgrieser.container.portal", portal.applicationId)
         assertFalse(portal.requirePin)
         assertFalse(portal.showMenu)
+        assertFalse(portal.pullToRefresh)
         assertEquals("/dashboard", portal.defaultKioskPath)
     }
 

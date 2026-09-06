@@ -260,6 +260,11 @@ class MainActivity : AppCompatActivity() {
             }
         )
         binding.swipeRefresh.apply {
+            // A disabled SwipeRefreshLayout stops intercepting the gesture
+            // altogether, so a page that reads a downward drag itself keeps every
+            // touch. Fixed per build; the admin menu's "Reload configuration"
+            // reloads such a page instead.
+            isEnabled = BuildConfig.PULL_TO_REFRESH
             setColorSchemeResources(R.color.brand_primary)
             setOnRefreshListener { reloadCurrentPage() }
         }

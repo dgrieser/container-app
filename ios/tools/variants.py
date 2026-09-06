@@ -69,6 +69,7 @@ class Variant:
     default_kiosk_path: str
     require_pin: bool
     show_menu: bool
+    pull_to_refresh: bool
     screen_mode: str
     bar_color: BarColors
     allow_unverified_ssl: bool
@@ -395,6 +396,7 @@ def _parse_variant(
         default_kiosk_path=default_kiosk_path,
         require_pin=flag("requirePin"),
         show_menu=flag("showMenu"),
+        pull_to_refresh=flag("pullToRefresh"),
         screen_mode=screen_mode,
         bar_color=_parse_bar_colors(raw.get("barColor"), f"{where} barColor", file_name, schema),
         allow_unverified_ssl=flag("allowUnverifiedSsl"),
@@ -492,6 +494,7 @@ def dump_json(variants: list[Variant]) -> str:
             "id": v.id,
             "locationReason": v.location_reason,
             "name": v.name,
+            "pullToRefresh": v.pull_to_refresh,
             "requirePin": v.require_pin,
             "screenMode": v.screen_mode,
             "showMenu": v.show_menu,

@@ -45,6 +45,7 @@ object VariantsJson {
         "id" to variant.id,
         "locationReason" to variant.locationReason,
         "name" to variant.name,
+        "pullToRefresh" to variant.pullToRefresh,
         "requirePin" to variant.requirePin,
         "screenMode" to variant.screenMode,
         "showMenu" to variant.showMenu,
